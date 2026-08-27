@@ -86,6 +86,7 @@ export async function executeAgentStep(runId: string, userId: string): Promise<S
     }
     state.currentStep--;
     await recordStep(admin, runId, state, decision.toolName, "succeeded", undefined, `Retrying (attempt ${state.retryCount + 1})`);
+    await saveRun(admin, runId, "running", state);
     return { phase: "adapt", summary: `Retrying (attempt ${state.retryCount + 1}).`, toolName: decision.toolName, toolStatus: "succeeded", requiresUserAction: false };
   }
 
