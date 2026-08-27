@@ -1,0 +1,58 @@
+"use client";
+
+import { type InputHTMLAttributes, useId } from "react";
+
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+  error?: string;
+  helpText?: string;
+}
+
+export function Input({
+  label,
+  error,
+  helpText,
+  className = "",
+  id: propId,
+  ...props
+}: InputProps) {
+  const autoId = useId();
+  const id = propId || autoId;
+  const errorId = `${id}-error`;
+  const helpId = `${id}-help`;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-semibold text-text-primary">
+        {label}
+      </label>
+      <input
+        id={id}
+        aria-invalid={!!error}
+        aria-describedby={error ? errorId : helpText ? helpId : undefined}
+        className={[
+          "h-11 rounded-input border bg-surface px-3 text-base text-text-primary",
+          "placeholder:text-text-secondary/50",
+          "transition-colors duration-150",
+          "focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+          error
+            ? "border-error focus:ring-error"
+            : "border-border hover:border-text-secondary/30",
+          className,
+        ].join(" ")}
+        {...props}
+      />
+      {error && (
+        <p id={errorId} className="text-sm text-error" role="alert">
+          {error}
+        </p>
+      )}
+      {helpText && !error && (
+        <p id={helpId} className="text-sm text-text-secondary">
+          {helpText}
+        </p>
+      )}
+    </div>
+  );
+}
