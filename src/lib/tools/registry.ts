@@ -9,10 +9,7 @@ export const ALLOWED_TOOLS = [
   "timeline.build",
   "clarification.request",
   "brief.generate",
-  "checklist.generate",
   "reminder.create",
-  "calendar.export_ics",
-  "pdf.export",
 ] as const;
 
 export type ToolName = (typeof ALLOWED_TOOLS)[number];
@@ -26,10 +23,7 @@ export const TOOL_STATE_MAP: Record<ToolName, string[]> = {
   "timeline.build": ["extracting", "executing"],
   "clarification.request": ["extracting", "review_required", "executing"],
   "brief.generate": ["executing"],
-  "checklist.generate": ["executing"],
   "reminder.create": ["executing"],
-  "calendar.export_ics": ["executing"],
-  "pdf.export": ["executing"],
 };
 
 export function isToolAllowed(toolName: string): toolName is ToolName {
@@ -72,20 +66,10 @@ export const ToolInputSchemas = {
     portfolioId: z.string(),
     appointmentId: z.string().optional(),
   }),
-  "checklist.generate": z.object({
-    portfolioId: z.string(),
-    appointmentId: z.string().optional(),
-  }),
   "reminder.create": z.object({
     appointmentId: z.string(),
     remindAt: z.string(),
     message: z.string().min(1),
-  }),
-  "calendar.export_ics": z.object({
-    appointmentId: z.string(),
-  }),
-  "pdf.export": z.object({
-    briefId: z.string(),
   }),
 };
 

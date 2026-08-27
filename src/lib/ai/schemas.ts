@@ -56,10 +56,7 @@ export const AgentNextActionSchema = z.object({
     "timeline.build",
     "clarification.request",
     "brief.generate",
-    "checklist.generate",
     "reminder.create",
-    "calendar.export_ics",
-    "pdf.export",
   ]),
   toolInput: z.record(z.unknown()),
   reasoning: z.string(),
@@ -70,66 +67,30 @@ export type ExtractedField = z.infer<typeof ExtractedFieldSchema>;
 export type DocumentClassification = z.infer<typeof DocumentClassificationSchema>;
 export type AgentNextAction = z.infer<typeof AgentNextActionSchema>;
 
-// Safety check schema
-export const MedicalSafetyCheckSchema = z.object({
-  isDiagnosisRequest: z.boolean(),
-  isTreatmentRequest: z.boolean(),
-  isMedicationChangeRequest: z.boolean(),
-  isEmergencyRequest: z.boolean(),
-});
-
-// Timeline event schema
-export const TimelineEventSchema = z.object({
-  eventDate: z.string().nullable(),
-  eventType: z.enum([
-    "consultation",
-    "test",
-    "report",
-    "prescription",
-    "discharge",
-    "follow_up",
-    "other",
-  ]),
-  title: z.string().min(1),
-  description: z.string(),
-  sourceExtractionIds: z.array(z.string()),
-  verificationStatus: z.enum(["verified", "disputed", "incomplete"]),
-});
-
-// Brief content schema
-export const BriefContentSchema = z.object({
-  appointmentDetails: z.object({
-    date: z.string().nullable(),
-    time: z.string().nullable(),
-    timezone: z.string(),
-    specialty: z.string().nullable(),
-    clinicianName: z.string().nullable(),
-    location: z.string().nullable(),
-  }),
-  goal: z.string(),
-  verifiedEvents: z.array(
-    z.object({
-      date: z.string().nullable(),
-      type: z.string(),
-      title: z.string(),
-      description: z.string(),
-      sourceDocumentId: z.string(),
-      sourceDocumentName: z.string(),
-      pageNumber: z.number(),
-    })
-  ),
-  documentsIncluded: z.array(
-    z.object({
-      name: z.string(),
-      type: z.string(),
-    })
-  ),
-  documentsMissing: z.array(z.string()),
-  questionsToDiscuss: z.array(z.string()),
-  preparationChecklist: z.array(z.string()),
-  safetyDisclaimer: z.string(),
-  generatedAt: z.string(),
-});
-
-export type BriefContent = z.infer<typeof BriefContentSchema>;
-export type TimelineEventData = z.infer<typeof TimelineEventSchema>;
+// Brief content type (shape matches what generateBrief produces)
+export interface BriefContent {
+  appointmentDetails: {
+    date: string | null;
+    time: string | null;
+    timezone: string;
+    specialty: string | null;
+    clinicianName: string | null;
+    location: string | null;
+  };
+  goal: string;
+  verifiedEvents: Array<{
+    date: string | null;
+    type: string;
+    title: string;
+    description: string;
+    sourceDocumentId: string;
+    sourceDocumentName: string;
+    pageNumber: number;
+  }>;
+  documentsIncluded: Array<{ name: string; type: string }>;
+  documentsMissing: string[];
+  questionsToDiscuss: string[];
+  preparationChecklist: string[];
+  safetyDisclaimer: string;
+  generatedAt: string;
+}

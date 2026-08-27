@@ -27,14 +27,8 @@ export async function executeTool(
         return { success: true, data: { message: input.message, requestType: input.requestType } };
       case "brief.generate":
         return await generateBrief(input, userId, admin, state);
-      case "checklist.generate":
-        return { success: true, data: { generated: true } };
       case "reminder.create":
         return await createReminder(input, userId, admin);
-      case "calendar.export_ics":
-        return { success: true, data: { appointmentId: input.appointmentId } };
-      case "pdf.export":
-        return { success: true, data: { briefId: input.briefId } };
       default:
         return { success: false, errorCode: "UNKNOWN_TOOL" };
     }
