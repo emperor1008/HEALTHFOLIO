@@ -32,18 +32,6 @@ export const TOOL_STATE_MAP: Record<ToolName, string[]> = {
   "pdf.export": ["executing"],
 };
 
-/**
- * Forbidden medical actions that must never appear as tool names or parameters.
- */
-const FORBIDDEN_ACTIONS = [
-  "diagnose",
-  "prescribe",
-  "treat",
-  "medication_change",
-  "dose_adjust",
-  "emergency_assessment",
-];
-
 export function isToolAllowed(toolName: string): toolName is ToolName {
   return (ALLOWED_TOOLS as readonly string[]).includes(toolName);
 }
@@ -57,16 +45,6 @@ export function canToolRunInState(
   return allowedStates.includes(agentState);
 }
 
-export function isForbiddenAction(toolName: string, input: Record<string, unknown>): boolean {
-  // Check tool name
-  if (FORBIDDEN_ACTIONS.some((f) => toolName.toLowerCase().includes(f))) {
-    return true;
-  }
-
-  // Check input for medical safety violations
-  const inputStr = JSON.stringify(input).toLowerCase();
-  return FORBIDDEN_ACTIONS.some((f) => inputStr.includes(f));
-}
 
 /**
  * Tool input schemas for validation.

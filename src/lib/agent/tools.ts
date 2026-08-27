@@ -3,7 +3,7 @@ import { getAIProvider } from "@/lib/ai/provider";
 import type { AgentRunState } from "./controller";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
-export type ToolResult = { success: boolean; data?: unknown; errorCode?: string };
+type ToolResult = { success: boolean; data?: unknown; errorCode?: string };
 
 const SAFETY_DISCLAIMER =
   "Healthfolio organizes medical information and helps you prepare for consultations. It does not diagnose conditions, recommend treatment, or replace a healthcare professional.";

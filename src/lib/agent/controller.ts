@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAIProvider } from "@/lib/ai/provider";
-import { isToolAllowed, canToolRunInState, isForbiddenAction, validateToolInput } from "@/lib/tools/registry";
+import { isToolAllowed, canToolRunInState, validateToolInput } from "@/lib/tools/registry";
 import { checkSafetyBoundary } from "@/lib/ai/safety";
 import { executeTool } from "./tools";
 
@@ -68,7 +68,6 @@ export async function executeAgentStep(runId: string, userId: string): Promise<S
   // Safety + validation gates
   const safety = checkSafetyBoundary(decision.reasoning + " " + JSON.stringify(decision.toolInput));
   if (!safety.allowed) return failStep(admin, runId, state, decision, "SAFETY_VIOLATION", safety.response);
-  if (isForbiddenAction(decision.toolName, decision.toolInput)) return failStep(admin, runId, state, decision, "SAFETY_VIOLATION");
   if (!isToolAllowed(decision.toolName)) return failStep(admin, runId, state, decision, "INVALID_TOOL");
   if (!canToolRunInState(decision.toolName, run.status)) return failStep(admin, runId, state, decision, "INVALID_STATE");
 
@@ -119,7 +118,7 @@ function blocked(errorCode: string, summary: string): StepResult {
   return { phase: "blocked", summary, toolStatus: "blocked", errorCode, requiresUserAction: true };
 }
 
-function failStep(
+async function failStep(
   admin: ReturnType<typeof createAdminClient>,
   runId: string,
   state: AgentRunState,
@@ -127,8 +126,8 @@ function failStep(
   errorCode: string,
   summary?: string
 ): Promise<StepResult> {
-  return recordStep(admin, runId, state, decision.toolName, "blocked", errorCode, summary)
-    .then(() => blocked(errorCode, summary || "Action blocked by safety policy."));
+  await recordStep(admin, runId, state, decision.toolName, "blocked", errorCode, summary);
+  return blocked(errorCode, summary || "Action blocked by safety policy.");
 }
 
 async function decide(

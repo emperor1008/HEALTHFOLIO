@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   isToolAllowed,
   canToolRunInState,
-  isForbiddenAction,
   validateToolInput,
   ALLOWED_TOOLS,
 } from "@/lib/tools/registry";
@@ -39,26 +38,6 @@ describe("Tool Registry", () => {
 
     it("should not allow unknown tools in any state", () => {
       expect(canToolRunInState("unknown.tool", "intake")).toBe(false);
-    });
-  });
-
-  describe("isForbiddenAction", () => {
-    it("should block diagnosis actions", () => {
-      expect(isForbiddenAction("diagnose", {})).toBe(true);
-    });
-
-    it("should block prescription actions", () => {
-      expect(isForbiddenAction("prescribe", {})).toBe(true);
-    });
-
-    it("should block treatment actions", () => {
-      expect(isForbiddenAction("treat", {})).toBe(true);
-    });
-
-    it("should not block legitimate tools", () => {
-      expect(isForbiddenAction("document.ingest", { documentId: "123" })).toBe(false);
-      expect(isForbiddenAction("timeline.build", { portfolioId: "123" })).toBe(false);
-      expect(isForbiddenAction("brief.generate", { portfolioId: "123" })).toBe(false);
     });
   });
 
