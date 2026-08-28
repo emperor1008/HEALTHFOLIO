@@ -22,6 +22,14 @@ export default function SignInPage() {
     setError(null);
 
     try {
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        setError(
+          "Sign-in is not configured yet. The administrator needs to set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in the .env.local file."
+        );
+        setLoading(false);
+        return;
+      }
+
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -36,15 +44,16 @@ export default function SignInPage() {
             "Please verify your email before signing in. Check your inbox for the verification link."
           );
         } else {
-          setError("Could not sign you in. Please try again.");
+          setError(signInError.message || "Could not sign you in. Please try again.");
         }
         return;
       }
 
       router.push("/dashboard");
       router.refresh();
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`Something went wrong: ${message}`);
     } finally {
       setLoading(false);
     }

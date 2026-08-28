@@ -23,6 +23,14 @@ export default function SignUpPage() {
     setError(null);
 
     try {
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        setError(
+          "Sign-up is not configured yet. The administrator needs to set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in the .env.local file."
+        );
+        setLoading(false);
+        return;
+      }
+
       const supabase = createClient();
       const { error: signUpError } = await supabase.auth.signUp({
         email,
@@ -36,14 +44,15 @@ export default function SignUpPage() {
         if (signUpError.message.includes("already registered")) {
           setError("An account with this email already exists. Please sign in.");
         } else {
-          setError("Could not create your account. Please try again.");
+          setError(signUpError.message || "Could not create your account. Please try again.");
         }
         return;
       }
 
       setSuccess(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`Something went wrong: ${message}`);
     } finally {
       setLoading(false);
     }
