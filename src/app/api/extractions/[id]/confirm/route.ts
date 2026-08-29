@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/auth-helpers";
 import { z } from "zod";
 import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
 
@@ -16,13 +16,9 @@ export async function POST(
   const requestId = generateRequestId();
 
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const user = await getUser();
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         formatErrorResponse(createError("AUTH_REQUIRED", "Authentication required"), requestId),
         { status: 401 }

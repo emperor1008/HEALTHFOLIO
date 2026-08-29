@@ -13,6 +13,8 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -38,20 +40,31 @@ export default function SettingsPage() {
   }
 
   async function handleRequestDeletion() {
-    if (!confirm("Are you sure you want to request account deletion? This action cannot be undone.")) {
-      return;
-    }
+    if (deleteConfirmation !== "DELETE") return;
 
     setDeleting(true);
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+    setDeleteError(null);
 
-      // In a real app, this would create a deletion request
-      setSuccess("Account deletion request submitted. You will receive a confirmation email.");
+    try {
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: "DELETE" }),
+      });
+
+      const result = await response.json();
+
+      if (result.error) {
+        setDeleteError(result.error.message);
+        return;
+      }
+
+      setSuccess("Account deleted. Redirecting to sign in...");
+      setTimeout(() => {
+        window.location.href = "/sign-in";
+      }, 2000);
     } catch {
-      setError("Could not submit deletion request.");
+      setDeleteError("Could not delete account. Please try again.");
     } finally {
       setDeleting(false);
     }
@@ -91,6 +104,13 @@ export default function SettingsPage() {
         </form>
       </Card>
 
+      {/* Anonymous user notice */}
+      <Card padding="md" className="border-warning/20 bg-warning/5">
+        <p className="text-sm text-text-secondary">
+          Your information is currently connected to this browser. Clearing browser data may remove access to your records. Account linking will be available later.
+        </p>
+      </Card>
+
       {/* Privacy */}
       <Card padding="lg">
         <h2 className="text-lg font-semibold text-text-primary">Privacy</h2>
@@ -121,20 +141,36 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold text-error">Danger Zone</h2>
         <div className="mt-4">
           <p className="text-sm text-text-secondary">
-            Request account deletion. This will permanently remove your account, documents,
-            extractions, timeline events, briefs, and all associated data. This action
-            cannot be undone.
+            Permanently delete your account and all associated data including documents,
+            extractions, timeline events, briefs, and reminders. This action cannot be undone.
           </p>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleRequestDeletion}
-            loading={deleting}
-            loadingText="Submitting…"
-            className="mt-4"
-          >
-            Request account deletion
-          </Button>
+          {deleteError && (
+            <p className="mt-2 text-sm text-error">{deleteError}</p>
+          )}
+          <div className="mt-4 flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-text-primary">
+                Type <strong>DELETE</strong> to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder="DELETE"
+                className="mt-1 block w-full rounded-card border border-border px-3 py-2 text-sm"
+              />
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleRequestDeletion}
+              loading={deleting}
+              loadingText="Deleting…"
+              disabled={deleteConfirmation !== "DELETE"}
+            >
+              Delete account
+            </Button>
+          </div>
         </div>
       </Card>
     </div>

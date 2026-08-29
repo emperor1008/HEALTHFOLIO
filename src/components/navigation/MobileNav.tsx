@@ -3,26 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
+const NAV_ITEMS = [
   {
-    label: "Overview",
+    label: "Home",
     href: "/dashboard",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 7.5L10 2l7 5.5V16a1 1 0 01-1 1H4a1 1 0 01-1-1V7.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 17V10h6v7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
   {
-    label: "Documents",
+    label: "Records",
     href: "/documents",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <path d="M4 3h8l4 4v10a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M12 3v4h4" stroke="currentColor" strokeWidth="1.5" />
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="2" width="14" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M7 6h6M7 10h6M7 14h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -30,21 +28,20 @@ const navItems = [
     label: "Timeline",
     href: "/timeline",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <line x1="10" y1="2" x2="10" y2="18" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="10" cy="5" r="2" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="10" cy="10" r="2" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="10" cy="15" r="2" stroke="currentColor" strokeWidth="1.5" />
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M10 6v4l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
   {
-    label: "Prepare",
-    href: "/preparation",
+    label: "Ask",
+    href: "/ask",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-        <path d="M6 10l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M18 11.5a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M8.5 8.5a1.5 1.5 0 113 0c0 .83-.67 1.25-1.5 1.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="10" cy="13" r="0.75" fill="currentColor" />
       </svg>
     ),
   },
@@ -54,26 +51,26 @@ export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface safe-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface md:hidden">
       <div className="flex items-center justify-around px-2 py-1">
-        {navItems.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));
-
           return (
             <Link
               key={item.href}
               href={item.href}
               className={[
-                "flex flex-col items-center gap-0.5 rounded-card px-3 py-2 text-xs font-medium transition-colors duration-150 min-w-[56px]",
+                "flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors min-w-[60px]",
                 isActive
                   ? "text-primary"
                   : "text-text-secondary",
               ].join(" ")}
-              aria-current={isActive ? "page" : undefined}
             >
-              {item.icon}
+              <span className={isActive ? "text-primary" : "text-text-secondary"}>
+                {item.icon}
+              </span>
               {item.label}
             </Link>
           );

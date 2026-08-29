@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/auth-helpers";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
@@ -8,7 +9,7 @@ import { generateRequestId, createError, formatErrorResponse } from "@/lib/error
 const uploadIntentSchema = z.object({
   portfolioId: z.string().uuid(),
   fileName: z.string().min(1).max(255),
-  mimeType: z.enum(["application/pdf", "image/png", "image/jpeg"]),
+  mimeType: z.enum(["application/pdf", "image/png", "image/jpeg", "image/webp"]),
   sizeBytes: z.number().positive(),
 });
 
@@ -17,6 +18,7 @@ const ALLOWED_EXTENSIONS: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
+  webp: "image/webp",
 };
 
 export async function POST(request: NextRequest) {
@@ -24,13 +26,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const maxBytes = parseInt(process.env.DOCUMENT_MAX_BYTES || "10485760");
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const user = await getUser();
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         formatErrorResponse(createError("AUTH_REQUIRED", "Authentication required"), requestId),
         { status: 401 }
@@ -68,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (!ALLOWED_EXTENSIONS[ext]) {
       return NextResponse.json(
         formatErrorResponse(
-          createError("FILE_UNSUPPORTED", "Upload a PDF, PNG, or JPEG file."),
+          createError("FILE_UNSUPPORTED", "Upload a PDF, PNG, JPEG, or WEBP file."),
           requestId
         ),
         { status: 400 }

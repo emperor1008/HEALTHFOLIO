@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/auth-helpers";
 import { z } from "zod";
 import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
 import { getAIProvider } from "@/lib/ai/provider";
@@ -14,13 +14,9 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId();
 
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const user = await getUser();
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         formatErrorResponse(createError("AUTH_REQUIRED", "Authentication required"), requestId),
         { status: 401 }
@@ -38,6 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { portfolioId, appointmentId } = parsed.data;
+
     const admin = createAdminClient();
 
     // Get verified events
@@ -87,24 +84,20 @@ export async function POST(request: NextRequest) {
     // Generate questions and checklist
     let questions: string[] = [];
     let checklist: string[] = [];
+    let aiAvailable = true;
 
     try {
       const provider = getAIProvider();
-      [questions, checklist] = await Promise.all([
-        provider.generateQuestions(goal, events || [], appointment?.specialty),
-        provider.generateChecklist(goal, events || []),
-      ]);
+      if (!provider.isConfigured()) {
+        aiAvailable = false;
+      } else {
+        [questions, checklist] = await Promise.all([
+          provider.generateQuestions(goal, events || [], appointment?.specialty),
+          provider.generateChecklist(goal, events || []),
+        ]);
+      }
     } catch {
-      // AI not available, use defaults
-      questions = [
-        "What should I discuss during this appointment?",
-        "Are there any follow-up tests I should ask about?",
-      ];
-      checklist = [
-        "Carry all original medical documents",
-        "Write down any symptoms or changes since last visit",
-        "Prepare a list of current medications",
-      ];
+      aiAvailable = false;
     }
 
     // Build brief content

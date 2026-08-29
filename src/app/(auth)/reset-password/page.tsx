@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/browser";
+
+const RESEND_COOLDOWN_MS = 60_000;
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -13,9 +15,36 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("reset_email_cooldown");
+    if (stored) {
+      const elapsed = Date.now() - parseInt(stored, 10);
+      if (elapsed < RESEND_COOLDOWN_MS) {
+        setCooldownRemaining(Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000));
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownRemaining]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (cooldownRemaining > 0) return;
+
     setLoading(true);
     setError(null);
 
@@ -31,6 +60,8 @@ export default function ResetPasswordPage() {
       }
 
       setSuccess(true);
+      sessionStorage.setItem("reset_email_cooldown", Date.now().toString());
+      setCooldownRemaining(60);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -93,9 +124,12 @@ export default function ResetPasswordPage() {
             type="submit"
             loading={loading}
             loadingText="Sending reset link…"
+            disabled={cooldownRemaining > 0}
             className="w-full"
           >
-            Send reset link
+            {cooldownRemaining > 0
+              ? `Resend in ${cooldownRemaining}s`
+              : "Send reset link"}
           </Button>
         </form>
 

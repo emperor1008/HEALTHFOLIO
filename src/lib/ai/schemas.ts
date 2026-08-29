@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ALL_TOOL_NAMES } from "@/lib/tools/tool-names";
 
 export const EvidenceLocatorSchema = z.object({
   documentId: z.string(),
@@ -50,14 +51,7 @@ export const DocumentClassificationSchema = z.object({
 });
 
 export const AgentNextActionSchema = z.object({
-  toolName: z.enum([
-    "document.ingest",
-    "document.extract",
-    "timeline.build",
-    "clarification.request",
-    "brief.generate",
-    "reminder.create",
-  ]),
+  toolName: z.enum(ALL_TOOL_NAMES as unknown as [string, ...string[]]),
   toolInput: z.record(z.unknown()),
   reasoning: z.string(),
 });

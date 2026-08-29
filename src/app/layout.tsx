@@ -25,6 +25,8 @@ export const viewport: Viewport = {
   themeColor: "#0F5C5E",
 };
 
+import { HealthfolioSplash } from "@/components/branding/HealthfolioSplash";
+
 export default function RootLayout({
   children,
 }: {
@@ -39,6 +41,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-canvas font-sans text-text-primary antialiased">
+        <HealthfolioSplash />
         {children}
       </body>
     </html>

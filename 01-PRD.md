@@ -1,9 +1,8 @@
 # Healthfolio — Product Requirements Document
 
 **Document status:** Build baseline  
-**Product stage:** Hackathon MVP  
+**Product stage:** MVP  
 **Primary owner:** Solo developer  
-**Submission target:** Tech Zephyr 4.0 Agentic AI Hackathon, Round 1  
 **Product type:** Responsive web application / installable PWA
 
 ## 1. Product summary
@@ -39,7 +38,7 @@ Healthfolio solves this preparation problem by turning scattered records into a 
 - Needs a concise brief and task checklist
 - Requires strong separation between portfolios and clear consent boundaries
 
-### Hackathon demo persona
+### Demo persona
 
 - Uses fictional records only
 - Uploads 4–6 prepared sample documents
@@ -190,7 +189,7 @@ The model cannot invent tool names or execute arbitrary code.
 
 ## 12. Success metrics
 
-### Hackathon metrics
+### Demo metrics
 
 - Complete end-to-end demo success rate: target 100% across ten rehearsals
 - Successful recovery from the intentional extraction failure: target 100%
@@ -236,15 +235,15 @@ The model cannot invent tool names or execute arbitrary code.
 | Prompt injection inside documents | Treat documents as untrusted data; tools remain allowlisted server-side |
 | Solo-development scope | One user role, one workflow, one agent and few integrations |
 | API outage | Clear blocked state, retry control and deterministic demo fallback using prepared extraction fixtures |
-| Judges perceive a chatbot | Activity trail and real PDF/ICS/reminder actions make execution visible |
+| Users perceive a chatbot | Activity trail and real PDF/ICS/reminder actions make execution visible |
 
-## 15. Round 1 submission definition of done
+## 15. Definition of done
 
 - Public repository with sanitized code and `.env.example`
 - Complete README and architecture documentation
 - Hosted or locally reproducible application
 - Fictional sample documents
-- 3–5 minute demo video showing failure and adaptation
-- Problem/solution deck with safety limitations
+- Demo showing failure and adaptation
+- Safety limitations documented
 - No real patient information, secrets or mocked success claims
 

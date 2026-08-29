@@ -39,7 +39,7 @@ const config: Config = {
         sheet: "18px",
       },
       spacing: {
-        "44": "11px",
+        "44": "44px",
       },
       minHeight: {
         touch: "44px",

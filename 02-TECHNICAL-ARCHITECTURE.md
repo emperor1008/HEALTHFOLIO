@@ -2,7 +2,7 @@
 
 ## 1. Architecture goals
 
-Healthfolio is designed for a solo developer and a time-boxed hackathon. It uses one full-stack TypeScript application, managed authentication/database/storage, one agent controller and a small tool registry. The architecture prioritizes an observable agent loop, source traceability, security and reproducibility over premature scale.
+Healthfolio is designed for a solo developer. It uses one full-stack TypeScript application, managed authentication/database/storage, one agent controller and a small tool registry. The architecture prioritizes an observable agent loop, source traceability, security and reproducibility over premature scale.
 
 ## 2. System context
 

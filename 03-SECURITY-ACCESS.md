@@ -2,7 +2,7 @@
 
 ## 1. Security position
 
-Healthfolio handles highly sensitive health-related documents. The hackathon MVP must use fictional data only and must not claim HIPAA, DISHA, ABDM or medical-device compliance. The security design nevertheless follows privacy-by-default principles so unsafe shortcuts do not become part of the product foundation.
+Healthfolio handles highly sensitive health-related documents. The MVP must use fictional data only and must not claim HIPAA, DISHA, ABDM or medical-device compliance. The security design nevertheless follows privacy-by-default principles so unsafe shortcuts do not become part of the product foundation.
 
 ## 2. Authentication
 

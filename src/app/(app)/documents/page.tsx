@@ -27,6 +27,7 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     async function loadDocuments() {
@@ -36,11 +37,21 @@ export default function DocumentsPage() {
 
       const { data: docs } = await supabase
         .from("documents")
-        .select("*")
+        .select("id, original_name, mime_type, size_bytes, document_type, status, page_count, created_at")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
 
       setDocuments(docs || []);
+
+      // Count pending extractions
+      const { count } = await supabase
+        .from("extractions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("verification_status", "pending");
+
+      setPendingCount(count || 0);
       setLoading(false);
     }
 
@@ -96,6 +107,21 @@ export default function DocumentsPage() {
           }}
         />
       ) : (
+        <>
+        {pendingCount > 0 && (
+          <Card padding="md" className="border-warning/20 bg-warning/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-warning">
+                  {pendingCount} extraction{pendingCount !== 1 ? "s" : ""} need your review
+                </p>
+              </div>
+              <Button size="sm" onClick={() => router.push("/review")}>
+                Review
+              </Button>
+            </div>
+          </Card>
+        )}
         <div className="space-y-3">
           {documents.map((doc) => (
             <Card key={doc.id} padding="md" className="hover:border-primary/30 transition-colors">
@@ -147,6 +173,7 @@ export default function DocumentsPage() {
             </Card>
           ))}
         </div>
+        </>
       )}
 
       {/* Preview Modal */}

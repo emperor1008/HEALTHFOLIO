@@ -21,7 +21,7 @@ export function checkSafetyBoundary(text: string): {
     return { allowed: false, response: BOUNDARY_MSG, violationType: "treatment" };
   }
 
-  if (/\b(should\s+i\s+(?:stop|start|take|change|reduce|increase)\s+(?:my|the|this)\s+(?:med|medication|drug|pill|tablet|dose))\b/i.test(text)) {
+  if (/\b(should\s+i\s+(?:stop|start|take|change|reduce|increase)(?:\s+taking)?\s+(?:my|the|this)\s+(?:med|medication|medicine|drug|pill|tablet|dose))\b/i.test(text)) {
     return { allowed: false, response: BOUNDARY_MSG, violationType: "medication_change" };
   }
 

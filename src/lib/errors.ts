@@ -20,6 +20,9 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "INVALID_REQUEST"
   | "SAFETY_VIOLATION"
+  | "CONFIGURATION_ERROR"
+  | "PARTIAL_DELETION"
+  | "AI_CONFIGURATION_REQUIRED"
   | "INTERNAL_ERROR";
 
 export function createError(code: ErrorCode, message: string) {

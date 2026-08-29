@@ -26,7 +26,6 @@ export default function SignInPage() {
         setError(
           "Sign-in is not configured yet. The administrator needs to set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in the .env.local file."
         );
-        setLoading(false);
         return;
       }
 
