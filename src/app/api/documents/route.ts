@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/auth-helpers";
 import { z } from "zod";
@@ -104,24 +103,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check consent
-    const { data: consent } = await admin
-      .from("consents")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("consent_type", "ai_processing")
-      .is("revoked_at", null)
-      .single();
-
-    if (!consent) {
-      return NextResponse.json(
-        formatErrorResponse(
-          createError("CONSENT_REQUIRED", "Please accept the privacy and AI-processing terms before uploading."),
-          requestId
-        ),
-        { status: 403 }
-      );
-    }
+    // Note: Consent is checked at agent run creation, not at upload time.
+    // This allows users to upload documents before granting AI-processing consent.
 
     // Generate safe filename and storage path
     const safeFilename = `${nanoid(12)}.${ext}`;

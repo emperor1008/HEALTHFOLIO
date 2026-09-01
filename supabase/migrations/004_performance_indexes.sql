@@ -42,13 +42,13 @@ CREATE INDEX IF NOT EXISTS idx_appointments_user_starts
 CREATE INDEX IF NOT EXISTS idx_briefs_user_created
   ON briefs(user_id, created_at DESC);
 
--- Briefs: by user + stale flag
-CREATE INDEX IF NOT EXISTS idx_briefs_user_stale
-  ON briefs(user_id, is_stale);
+-- Briefs: filter by user and status
+CREATE INDEX IF NOT EXISTS idx_briefs_user_status
+  ON briefs(user_id, status);
 
--- Reminders: by user + reminder_at
+-- Reminders: by user + remind_at 
 CREATE INDEX IF NOT EXISTS idx_reminders_user_at
-  ON reminders(user_id, reminder_at);
+  ON reminders(user_id, remind_at);
 
 -- Documents: covering index for list page
 CREATE INDEX IF NOT EXISTS idx_documents_list_cover

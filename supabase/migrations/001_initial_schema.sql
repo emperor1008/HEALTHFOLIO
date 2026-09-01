@@ -35,7 +35,7 @@ CREATE POLICY "Users can insert own profile"
 -- PORTFOLIOS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS portfolios (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   label TEXT NOT NULL DEFAULT 'My Healthfolio',
   subject_relationship TEXT DEFAULT 'self',
@@ -107,7 +107,7 @@ CREATE INDEX idx_documents_status ON documents(status);
 -- EXTRACTIONS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS extractions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
   page_number INTEGER NOT NULL,
@@ -147,7 +147,7 @@ CREATE INDEX idx_extractions_confidence ON extractions(confidence);
 -- MEDICAL EVENTS (Timeline)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS medical_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
   event_date DATE,
@@ -185,7 +185,7 @@ CREATE INDEX idx_medical_events_event_date ON medical_events(event_date);
 -- APPOINTMENTS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS appointments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
   starts_at TIMESTAMPTZ NOT NULL,
@@ -221,7 +221,7 @@ CREATE INDEX idx_appointments_portfolio_id ON appointments(portfolio_id);
 -- AGENT RUNS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS agent_runs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
   goal TEXT NOT NULL,
@@ -258,7 +258,7 @@ CREATE INDEX idx_agent_runs_status ON agent_runs(status);
 -- AGENT STEPS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS agent_steps (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   run_id UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
   sequence INTEGER NOT NULL,
@@ -287,7 +287,7 @@ CREATE INDEX idx_agent_steps_user_id ON agent_steps(user_id);
 -- BRIEFS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS briefs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
   appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
@@ -322,7 +322,7 @@ CREATE INDEX idx_briefs_portfolio_id ON briefs(portfolio_id);
 -- REMINDERS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS reminders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
   remind_at TIMESTAMPTZ NOT NULL,
@@ -357,7 +357,7 @@ CREATE INDEX idx_reminders_status ON reminders(status);
 -- CONSENTS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS consents (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   consent_type TEXT NOT NULL,
   policy_version TEXT NOT NULL,
@@ -386,7 +386,7 @@ CREATE INDEX idx_consents_user_id ON consents(user_id);
 -- AUDIT EVENTS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS audit_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   action TEXT NOT NULL,
   resource_type TEXT NOT NULL,

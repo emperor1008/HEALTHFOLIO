@@ -65,6 +65,11 @@ export const AskResponseSchema = z.object({
     "GENERAL_HEALTH_EDUCATION",
     "PERSONALIZED_MEDICAL_ADVICE",
     "EMERGENCY_OR_URGENT",
+    "MEDICINE_LOOKUP",
+    "TEST_LOOKUP",
+    "REPORT_EXPLANATION",
+    "HEALTH_TREND_QUESTION",
+    "MEDICATION_ROUTINE_QUESTION",
     "UNKNOWN",
   ]),
   answer: z.string().min(1),
@@ -198,6 +203,41 @@ export function buildNoRecordsResponse(
     clarificationOptions: [],
     safetyNotice:
       "Healthfolio organizes and explains your records. It does not provide diagnosis or replace a qualified healthcare professional.",
+  };
+}
+
+export function buildMedicineLookupResponse(
+  requestId: string,
+  answer: string,
+  correctionInfo?: { original: string; corrected: string; confidence: number }
+): AskResponse {
+  return {
+    requestId,
+    intent: "MEDICINE_LOOKUP",
+    answer,
+    answerType: "general_education",
+    sources: [],
+    requiresClarification: false,
+    clarificationOptions: [],
+    safetyNotice:
+      "Healthfolio retrieves medicine information from official sources (RxNorm, DailyMed, openFDA). This is not a substitute for professional medical advice.",
+  };
+}
+
+export function buildTestLookupResponse(
+  requestId: string,
+  answer: string
+): AskResponse {
+  return {
+    requestId,
+    intent: "TEST_LOOKUP",
+    answer,
+    answerType: "general_education",
+    sources: [],
+    requiresClarification: false,
+    clarificationOptions: [],
+    safetyNotice:
+      "Test explanations are general information. Reference ranges vary by laboratory. Consult your healthcare provider for interpretation.",
   };
 }
 

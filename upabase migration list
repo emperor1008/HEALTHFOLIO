@@ -1,0 +1,95 @@
+warning: in the working copy of 'supabase/migrations/001_initial_schema.sql', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/supabase/migrations/001_initial_schema.sql b/supabase/migrations/001_initial_schema.sql[m
+[1mindex c0e8c2d..5ec2363 100644[m
+[1m--- a/supabase/migrations/001_initial_schema.sql[m
+[1m+++ b/supabase/migrations/001_initial_schema.sql[m
+[36m@@ -35,7 +35,7 @@[m [mCREATE POLICY "Users can insert own profile"[m
+ -- PORTFOLIOS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS portfolios ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   label TEXT NOT NULL DEFAULT 'My Healthfolio',[m
+   subject_relationship TEXT DEFAULT 'self',[m
+[36m@@ -107,7 +107,7 @@[m [mCREATE INDEX idx_documents_status ON documents(status);[m
+ -- EXTRACTIONS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS extractions ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,[m
+   page_number INTEGER NOT NULL,[m
+[36m@@ -147,7 +147,7 @@[m [mCREATE INDEX idx_extractions_confidence ON extractions(confidence);[m
+ -- MEDICAL EVENTS (Timeline)[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS medical_events ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,[m
+   event_date DATE,[m
+[36m@@ -185,7 +185,7 @@[m [mCREATE INDEX idx_medical_events_event_date ON medical_events(event_date);[m
+ -- APPOINTMENTS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS appointments ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,[m
+   starts_at TIMESTAMPTZ NOT NULL,[m
+[36m@@ -221,7 +221,7 @@[m [mCREATE INDEX idx_appointments_portfolio_id ON appointments(portfolio_id);[m
+ -- AGENT RUNS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS agent_runs ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,[m
+   goal TEXT NOT NULL,[m
+[36m@@ -258,7 +258,7 @@[m [mCREATE INDEX idx_agent_runs_status ON agent_runs(status);[m
+ -- AGENT STEPS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS agent_steps ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   run_id UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,[m
+   sequence INTEGER NOT NULL,[m
+[36m@@ -287,7 +287,7 @@[m [mCREATE INDEX idx_agent_steps_user_id ON agent_steps(user_id);[m
+ -- BRIEFS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS briefs ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,[m
+   appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,[m
+[36m@@ -322,7 +322,7 @@[m [mCREATE INDEX idx_briefs_portfolio_id ON briefs(portfolio_id);[m
+ -- REMINDERS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS reminders ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,[m
+   remind_at TIMESTAMPTZ NOT NULL,[m
+[36m@@ -357,7 +357,7 @@[m [mCREATE INDEX idx_reminders_status ON reminders(status);[m
+ -- CONSENTS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS consents ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,[m
+   consent_type TEXT NOT NULL,[m
+   policy_version TEXT NOT NULL,[m
+[36m@@ -386,7 +386,7 @@[m [mCREATE INDEX idx_consents_user_id ON consents(user_id);[m
+ -- AUDIT EVENTS[m
+ -- ============================================================[m
+ CREATE TABLE IF NOT EXISTS audit_events ([m
+[31m-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),[m
+[32m+[m[32m  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),[m
+   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,[m
+   action TEXT NOT NULL,[m
+   resource_type TEXT NOT NULL,[m

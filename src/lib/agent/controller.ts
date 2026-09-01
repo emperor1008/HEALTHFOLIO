@@ -17,6 +17,7 @@ export interface AgentRunState {
   portfolioId: string;
   goal: string;
   status: string;
+  currentAgentState: AgentState;
   currentStep: number;
   maxSteps: number;
   retryCount: number;
@@ -57,6 +58,10 @@ export async function executeAgentStep(
     return blocked("NOT_FOUND", "Run not found or access denied.");
 
   const state: AgentRunState = run.state;
+  // Derive agent state from run state, falling back to intake for new runs
+  if (!state.currentAgentState) {
+    state.currentAgentState = "intake";
+  }
   const maxSteps = parseInt(process.env.AGENT_MAX_STEPS || "12");
   const maxRetries = parseInt(process.env.AGENT_MAX_RETRIES || "2");
 
@@ -104,7 +109,7 @@ export async function executeAgentStep(
     ) || [];
 
   // Decide: AI suggestion or deterministic fallback
-  const decision = await decide(run.status, {
+  const decision = await decide(state.currentAgentState, {
     unprocessed,
     pending,
     verified,
@@ -126,7 +131,7 @@ export async function executeAgentStep(
     );
   if (!isToolAllowed(decision.toolName))
     return failStep(admin, runId, state, decision, "INVALID_TOOL");
-  if (!canToolRunInState(decision.toolName, run.status))
+  if (!canToolRunInState(decision.toolName, state.currentAgentState))
     return failStep(admin, runId, state, decision, "INVALID_STATE");
 
   const validation = validateToolInput(decision.toolName, decision.toolInput);
@@ -185,11 +190,13 @@ export async function executeAgentStep(
   const hasPendingReviews = pending.length > 0;
   const hasUnprocessedDocs = unprocessed.length > 0;
   const nextState = getNextState(
-    run.status as AgentState,
+    state.currentAgentState,
     decision.toolName as any,
     hasPendingReviews,
     hasUnprocessedDocs
   );
+  // Update the agent state in the run state
+  state.currentAgentState = nextState;
 
   // Check for contradictions when entering verify state
   if (nextState === "verify" || nextState === "execute") {
@@ -416,3 +423,4 @@ async function saveRun(
     update.completed_at = new Date().toISOString();
   await admin.from("agent_runs").update(update).eq("id", runId);
 }
+

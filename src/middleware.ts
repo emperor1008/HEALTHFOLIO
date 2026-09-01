@@ -79,6 +79,10 @@ export async function middleware(request: NextRequest) {
     "/consent",
     "/review",
     "/ask",
+    "/records",
+    "/health-tracking",
+    "/medicines",
+    "/routine",
   ];
   const isProtectedRoute = protectedPrefixes.some((prefix) =>
     pathname.startsWith(prefix)

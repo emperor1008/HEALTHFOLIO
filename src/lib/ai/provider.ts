@@ -33,6 +33,11 @@ export interface AIProvider {
     specialty?: string
   ): Promise<string[]>;
   isConfigured(): boolean;
+  callStructuredChat<T>(
+    messages: Array<{ role: string; content: string }>,
+    schema: z.ZodType<T>,
+    options?: { temperature?: number }
+  ): Promise<T>;
 }
 
 // ─── OpenAI Provider ──────────────────────────────────────────────────────
@@ -241,6 +246,38 @@ RULES:
     if (Array.isArray(result)) return result as string[];
     return [];
   }
+
+  async callStructuredChat<T>(
+    messages: Array<{ role: string; content: string }>,
+    schema: z.ZodType<T>,
+    options?: { temperature?: number }
+  ): Promise<T> {
+    let lastError: unknown;
+    let currentMessages = [...messages];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const raw = await this.callModel(currentMessages, {
+          responseFormat: { type: "json_object" },
+        });
+        return schema.parse(raw);
+      } catch (err) {
+        lastError = err;
+        if (err instanceof z.ZodError && attempt === 0) {
+          currentMessages = [
+            ...currentMessages,
+            {
+              role: "user",
+              content:
+                "Your previous response did not match the required JSON schema. Please return ONLY valid JSON matching the schema exactly.",
+            },
+          ];
+        } else {
+          break;
+        }
+      }
+    }
+    throw lastError;
+  }
 }
 
 // ─── Stub Provider ────────────────────────────────────────────────────────
@@ -269,6 +306,10 @@ class StubProvider implements AIProvider {
   }
 
   async generateQuestions(): Promise<string[]> {
+    this.configurationError();
+  }
+
+  async callStructuredChat<T>(): Promise<T> {
     this.configurationError();
   }
 }

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { Spinner } from "@/components/ui/Spinner";
+import { ConsentModal } from "@/components/consent/ConsentModal";
 
 const ALLOWED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -53,6 +54,9 @@ export default function PreparePage() {
   const [uploading, setUploading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConsent, setShowConsent] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<FileList | null>(null);
+  const [consentChecked, setConsentChecked] = useState(false);
 
   const hasFiles = files.some((f) => f.status === "ready");
   const hasGoal = goal.trim().length > 0;
@@ -74,9 +78,34 @@ export default function PreparePage() {
 
   const handleFileSelect = useCallback(
     async (selectedFiles: FileList | null) => {
-      if (!selectedFiles) return;
+      if (!selectedFiles || selectedFiles.length === 0) return;
       setError(null);
 
+      // Check consent before uploading
+      if (!consentChecked) {
+        try {
+          const statusRes = await fetch("/api/consent/status");
+          const statusData = await statusRes.json();
+          if (!statusData.data?.hasConsent) {
+            setPendingFiles(selectedFiles);
+            setShowConsent(true);
+            return;
+          }
+          setConsentChecked(true);
+        } catch {
+          // If consent check fails, show modal to be safe
+          setPendingFiles(selectedFiles);
+          setShowConsent(true);
+          return;
+        }
+      }
+
+      await processFiles(selectedFiles);
+    }, [consentChecked]
+  );
+
+  const processFiles = useCallback(
+    async (selectedFiles: FileList) => {
       const supabase = createClient();
       const {
         data: { user },
@@ -193,6 +222,21 @@ export default function PreparePage() {
     [validateFile]
   );
 
+  function handleConsentAccepted() {
+    setShowConsent(false);
+    setConsentChecked(true);
+    if (pendingFiles) {
+      processFiles(pendingFiles);
+      setPendingFiles(null);
+    }
+  }
+
+  function handleConsentDeclined() {
+    setShowConsent(false);
+    setPendingFiles(null);
+    setError("Upload cancelled. You must accept the privacy and AI-processing terms to upload documents.");
+  }
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     handleFileSelect(e.dataTransfer.files);
@@ -258,6 +302,11 @@ export default function PreparePage() {
 
   return (
     <div className="space-y-8">
+      <ConsentModal
+        isOpen={showConsent}
+        onAccepted={handleConsentAccepted}
+        onDeclined={handleConsentDeclined}
+      />
       <div>
         <h1 className="text-2xl font-semibold text-text-primary md:text-3xl">
           New preparation

@@ -6,6 +6,15 @@ import { generateRequestId, createError, formatErrorResponse } from "@/lib/error
 const chatSchema = z.object({
   question: z.string().min(1).max(2000),
   requestId: z.string().uuid().optional(),
+  conversationHistory: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string(),
+      })
+    )
+    .max(20)
+    .optional(),
 });
 
 /**
@@ -78,11 +87,11 @@ export async function POST(request: NextRequest) {
     const extractions = extractionsResult.data || [];
     const documents = documentsResult.data || [];
 
-    // Process through the orchestrator
     const response = await processQuestion({
       userId: user.id,
       requestId,
       question,
+      conversationHistory: parsed.data.conversationHistory,
       extractions,
       documents,
     });

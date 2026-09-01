@@ -26,15 +26,16 @@ interface ChatMessage {
   suggestions?: string[];
   clarificationOptions?: string[];
   timestamp: Date;
+  activityLabel?: string;
 }
 
 const SUGGESTED_QUESTIONS = [
   "What can Healthfolio do?",
   "How do I upload a report?",
+  "What is metformin?",
+  "What is HbA1c?",
   "What medicines are recorded in my documents?",
   "Prepare questions for my next doctor visit",
-  "Find contradictions across my reports",
-  "How does OCR work?",
 ];
 
 const SAFETY_NOTICE =
@@ -45,9 +46,11 @@ export default function AskPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const inflightRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -62,7 +65,6 @@ export default function AskPage() {
       const q = question.trim();
       if (!q || loading) return;
 
-      // Generate a stable requestId for idempotency
       const requestId = crypto.randomUUID();
 
       // Prevent duplicate in-flight requests
@@ -71,6 +73,17 @@ export default function AskPage() {
 
       setError(null);
       setLoading(true);
+
+      // Create activity label based on question content
+      let activityLabel = "Thinking…";
+      const lowerQ = q.toLowerCase();
+      if (lowerQ.includes("metform") || lowerQ.includes("medicine") || lowerQ.includes("tablet") || lowerQ.includes("drug")) {
+        activityLabel = "Matching the medicine name…";
+      } else if (lowerQ.includes("hba1c") || lowerQ.includes("test") || lowerQ.includes("result") || lowerQ.includes("cholesterol")) {
+        activityLabel = "Checking your verified records…";
+      } else if (lowerQ.includes("upload") || lowerQ.includes("how")) {
+        activityLabel = "Looking up Healthfolio features…";
+      }
 
       const userMsg: ChatMessage = {
         id: `user-${requestId}`,
@@ -81,11 +94,21 @@ export default function AskPage() {
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
 
+      // Build conversation history for context
+      const conversationHistory = messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .slice(-10)
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
       try {
+        const controller = new AbortController();
+        abortRef.current = controller;
+
         const res = await fetch("/api/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: q, requestId }),
+          body: JSON.stringify({ question: q, requestId, conversationHistory }),
+          signal: controller.signal,
         });
 
         const data = await res.json();
@@ -109,14 +132,19 @@ export default function AskPage() {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMsg]);
-      } catch {
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          // User stopped generation — don't show error
+          return;
+        }
         setError("Could not reach the AI service. Please try again.");
       } finally {
         setLoading(false);
         inflightRef.current = null;
+        abortRef.current = null;
       }
     },
-    [loading]
+    [loading, messages]
   );
 
   function handleSubmit(e: React.FormEvent) {
@@ -124,24 +152,65 @@ export default function AskPage() {
     handleSend(input);
   }
 
-  function handleSuggestionClick(question: string) {
-    handleSend(question);
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(input);
+    }
+  }
+
+  function handleStop() {
+    abortRef.current?.abort();
+    setLoading(false);
+    inflightRef.current = null;
+  }
+
+  async function handleCopy(content: string, msgId: string) {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(msgId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Clipboard API not available
+    }
+  }
+
+  function handleNewConversation() {
+    setMessages([]);
+    setError(null);
+    setInput("");
+    inputRef.current?.focus();
   }
 
   function handleClarification(option: string) {
     handleSend(option);
   }
 
+  function handleSuggestionClick(question: string) {
+    handleSend(question);
+  }
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col md:h-[calc(100vh-3.5rem)]">
       {/* Header */}
-      <div className="shrink-0 border-b border-border px-4 py-3 md:px-6">
-        <h1 className="text-lg font-semibold text-text-primary">
-          Ask Healthfolio
-        </h1>
-        <p className="text-xs text-text-secondary">
-          Questions about your health records and how Healthfolio works
-        </p>
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 md:px-6">
+        <div>
+          <h1 className="text-lg font-semibold text-text-primary">
+            Ask Healthfolio
+          </h1>
+          <p className="text-xs text-text-secondary">
+            Questions about your health records and how Healthfolio works
+          </p>
+        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={handleNewConversation}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 hover:text-text-primary"
+            aria-label="Start new conversation"
+          >
+            New chat
+          </button>
+        )}
       </div>
 
       {/* Messages */}
@@ -156,8 +225,8 @@ export default function AskPage() {
             </h2>
             <p className="mt-2 max-w-md text-sm text-text-secondary">
               Ask questions about your uploaded records, or learn what
-              Healthfolio can do. The assistant will answer using your documents
-              when relevant.
+              Healthfolio can do. The assistant understands medicine names,
+              test names, and natural language.
             </p>
 
             {/* Safety notice */}
@@ -208,11 +277,30 @@ export default function AskPage() {
                 </p>
               )}
 
-              <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                {msg.content.split("\n").map((line, i) => {
+                  // Simple markdown bold
+                  const parts = line.split(/\*\*(.*?)\*\*/g);
+                  return (
+                    <span key={i}>
+                      {parts.map((part, j) =>
+                        j % 2 === 1 ? (
+                          <strong key={j} className="font-semibold">
+                            {part}
+                          </strong>
+                        ) : (
+                          <span key={j}>{part}</span>
+                        )
+                      )}
+                      {i < msg.content.split("\n").length - 1 && <br />}
+                    </span>
+                  );
+                })}
+              </div>
 
               {/* Safety notice */}
               {msg.safetyNotice && msg.role === "assistant" && (
-                <p className="mt-2 border-t border-border pt-2 text-[10px] text-text-secondary italic">
+                <p className="mt-3 border-t border-border pt-2 text-[10px] text-text-secondary italic">
                   {msg.safetyNotice}
                 </p>
               )}
@@ -240,6 +328,22 @@ export default function AskPage() {
                     ))}
                   </div>
                 )}
+
+              {/* Suggested follow-ups */}
+              {msg.suggestions && msg.suggestions.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {msg.suggestions.slice(0, 3).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => handleSuggestionClick(s)}
+                      disabled={loading}
+                      className="rounded-full border border-border bg-canvas px-3 py-1.5 text-[11px] text-text-secondary transition-colors hover:border-primary/30 hover:text-text-primary disabled:opacity-50"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Source cards */}
               {msg.sources && msg.sources.length > 0 && (
@@ -317,6 +421,19 @@ export default function AskPage() {
                   ))}
                 </div>
               )}
+
+              {/* Copy button for assistant messages */}
+              {msg.role === "assistant" && (
+                <div className="mt-2 flex justify-end">
+                  <button
+                    onClick={() => handleCopy(msg.content, msg.id)}
+                    className="text-[10px] text-text-secondary/60 hover:text-text-secondary"
+                    aria-label="Copy response"
+                  >
+                    {copiedId === msg.id ? "✓ Copied" : "Copy"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -336,7 +453,6 @@ export default function AskPage() {
             <button
               onClick={() => {
                 setError(null);
-                // Retry the last user message
                 const lastUser = [...messages]
                   .reverse()
                   .find((m) => m.role === "user");
@@ -355,25 +471,46 @@ export default function AskPage() {
       {/* Input */}
       <div className="shrink-0 border-t border-border bg-surface px-4 py-3 md:px-6">
         <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Ask about your health records…"
             disabled={loading}
-            className="flex-1 rounded-card border border-border bg-canvas px-4 py-2.5 text-sm text-text-primary placeholder:text-text-secondary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+            rows={1}
+            className="flex-1 resize-none rounded-card border border-border bg-canvas px-4 py-2.5 text-sm text-text-primary placeholder:text-text-secondary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+            style={{ minHeight: "42px", maxHeight: "120px" }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = "auto";
+              target.style.height = Math.min(target.scrollHeight, 120) + "px";
+            }}
           />
-          <Button
-            type="submit"
-            disabled={!input.trim() || loading}
-            loading={loading}
-            loadingText="Sending"
-            size="sm"
-          >
-            Send
-          </Button>
+          {loading ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleStop}
+              className="shrink-0"
+            >
+              Stop
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              disabled={!input.trim()}
+              size="sm"
+              className="shrink-0"
+            >
+              Send
+            </Button>
+          )}
         </form>
+        <p className="mt-1 text-[10px] text-text-secondary/60">
+          Enter to send · Shift+Enter for newline · Not a medical professional
+        </p>
       </div>
     </div>
   );

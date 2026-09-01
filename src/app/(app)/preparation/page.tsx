@@ -63,7 +63,7 @@ export default function PreparationPage() {
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          portfolioId: (await supabase.from("portfolios").select("id").limit(1).single()).data?.id,
+          portfolioId: (await supabase.from("portfolios").select("id").limit(1)).data?.[0]?.id,
         }),
       });
 

@@ -84,6 +84,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify consent before processing
+    const { data: consent } = await admin
+      .from("consents")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("consent_type", "ai_processing")
+      .is("revoked_at", null)
+      .single();
+
+    if (!consent) {
+      return NextResponse.json(
+        formatErrorResponse(
+          createError("CONSENT_REQUIRED", "Please accept the privacy and AI-processing terms before starting document processing."),
+          requestId
+        ),
+        { status: 403 }
+      );
+    }
+
     // Create appointment if provided
     let appointmentId: string | null = null;
     if (appointment) {
@@ -114,6 +133,7 @@ export async function POST(request: NextRequest) {
       portfolioId,
       goal,
       status: "running",
+      currentAgentState: "intake" as const,
       currentStep: 0,
       maxSteps,
       retryCount: 0,

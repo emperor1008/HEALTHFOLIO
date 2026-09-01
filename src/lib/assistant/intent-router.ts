@@ -14,6 +14,11 @@ export const IntentType = z.enum([
   "GENERAL_HEALTH_EDUCATION",
   "PERSONALIZED_MEDICAL_ADVICE",
   "EMERGENCY_OR_URGENT",
+  "MEDICINE_LOOKUP",
+  "TEST_LOOKUP",
+  "REPORT_EXPLANATION",
+  "HEALTH_TREND_QUESTION",
+  "MEDICATION_ROUTINE_QUESTION",
   "UNKNOWN",
 ]);
 
@@ -73,6 +78,40 @@ const GENERAL_HEALTH_PATTERNS = [
   /\b(benefits?\s+of)\b/i,
   /\b(how\s+(?:much|many)\s+(?:water|sleep|exercise))\b/i,
   /\b(health(?:y)?\s+(?:eating|food|diet|tips?|habits?))\b/i,
+];
+
+const MEDICINE_LOOKUP_PATTERNS = [
+  /\bwhat\s+(?:is|are|does)\s+(?:\w+\s+){0,3}(?:medication|medicine|drug|tablet|pill|capsule|syrup|injection)\b/i,
+  /\b(tell\s+me\s+about|information\s+about|what\s+is)\s+(?:my\s+)?(?:\w+\s+){0,2}(?:tablets?|capsules?|medicine|medication|drug|syrup)\b/i,
+  /\b(metformin|paracetamol|amoxicillin|azithromycin|amlodipine|losartan|telmisartan|atorvastatin|rosuvastatin|pantoprazole|omeprazole|cetirizine|montelukast|salbutamol|levothyroxine|warfarin|aspirin|clopidogrel|ramipril|enalapril|metoprolol|bisoprolol|insulin|prednisolone|doxycycline)\b/i,
+  /\bhow\s+(?:does|should|much|long)\b.*\b(metformin|paracetamol|amoxicillin|azithromycin|tablets?|pills?|capsules?|medicine|medication|drug|dose|dosing)\b/i,
+];
+
+const TEST_LOOKUP_PATTERNS = [
+  /\bwhat\s+(?:is|are|does)\s+(?:\w+\s+){0,3}(?:test|result|level|count|reading|value)\b/i,
+  /\b(tell\s+me\s+about|what\s+is|explain)\s+(?:my\s+)?(?:\w+\s+){0,2}(?:hba1c|cholesterol|glucose|creatinine|tsh|hemoglobin|platelet|vitamin|b12|uric|bun|esr|crp|ldl|hdl|triglyceride|bilirubin|wbc|rbc)\b/i,
+  /\b(hba1c|hemoglobin\s+a1c|fasting\s+(?:blood\s+)?sugar|random\s+(?:blood\s+)?sugar|ldl|hdl|triglycerides?|tsh|creatinine|uric\s+acid|vitamin\s+d|vitamin\s+b12|platelets?|esr|crp|wbc|rbc|cbc)\b/i,
+  /\bwhat\s+does\s+(?:my|the)\s+\w+\s+result\s+mean\b/i,
+  /\b(is|are)\s+(?:my|the)\s+(?:\w+\s+){0,2}(results?|values?|levels?|readings?)\s+(?:normal|high|low|ok|fine|good|bad|safe|dangerous|concerning)\b/i,
+];
+
+const REPORT_EXPLANATION_PATTERNS = [
+  /\b(explain|what\s+does|tell\s+me\s+about|summarize|interpret)\s+(?:my|the|this)\s+(?:\w+\s+){0,2}(?:report|lab|result|result|test|scan|prescription|discharge)\b/i,
+  /\bwhat\s+(?:is|does)\s+(?:this|the|my)\s+report\s+(?:say|show|mean|indicate)\b/i,
+  /\bcan\s+you\s+(?:explain|interpret|summarize|break\s+down)\s+(?:my|the|this)\s+(?:\w+\s+){0,2}report\b/i,
+];
+
+const HEALTH_TREND_PATTERNS = [
+  /\b(compare|comparison|difference|change|trend|improvement|worsen|better|higher|lower|increasing|decreasing)\b.*\b(between|in|of|over|across|through)\s+(?:my|the)\s+(?:\w+\s+){0,2}(?:results?|tests?|reports?|records?)\b/i,
+  /\b(am\s+i\s+(?:getting|becoming|improving|worsening))\b/i,
+  /\b(has|have)\s+(?:my|the)\s+\w+\s+(?:improved|worsened|changed|increased|decreased|gone\s+(?:up|down))\b/i,
+  /\bmy\s+(?:\w+\s+){0,2}(?:trend|progress|change|history)\b/i,
+];
+
+const ROUTINE_QUESTION_PATTERNS = [
+  /\b(reminder|routine|schedule|when\s+(?:should|do)\s+i\s+take|next\s+dose|missed\s+dose)\b/i,
+  /\b(medication\s+routine|medicine\s+schedule|pill\s+reminder|drug\s+schedule)\b/i,
+  /\bwhat\s+(?:is|are|was)\s+(?:my|the)\s+(?:\w+\s+){0,2}(?:routine|schedule|reminder|dose|timing)\b/i,
 ];
 
 const PERSONAL_RECORD_PATTERNS = [
@@ -137,6 +176,67 @@ export function classifyIntentDeterministic(text: string): IntentResult | null {
       intent: "PRODUCT_HELP",
       confidence: 0.9,
       requiresDocuments: false,
+      requiresReferenceRetrieval: false,
+      requiresClarification: false,
+    };
+  }
+
+  // Medicine lookup
+  const medicineScore = matchPatterns(trimmed, MEDICINE_LOOKUP_PATTERNS);
+  if (medicineScore > 0) {
+    return {
+      intent: "MEDICINE_LOOKUP" ,
+      confidence: 0.85,
+      requiresDocuments: false,
+      requiresReferenceRetrieval: true,
+      requiresClarification: false,
+    };
+  }
+
+  // Test lookup
+  const testScore = matchPatterns(trimmed, TEST_LOOKUP_PATTERNS);
+  if (testScore > 0) {
+    const hasMyTerms = /\b(my|i|me|my\s+)\b/i.test(trimmed);
+    return {
+      intent: (hasMyTerms ? "PERSONAL_RECORD_QUESTION" : "TEST_LOOKUP") ,
+      confidence: hasMyTerms ? 0.8 : 0.85,
+      requiresDocuments: hasMyTerms,
+      requiresReferenceRetrieval: !hasMyTerms,
+      requiresClarification: false,
+    };
+  }
+
+  // Report explanation
+  const reportScore = matchPatterns(trimmed, REPORT_EXPLANATION_PATTERNS);
+  if (reportScore > 0) {
+    return {
+      intent: "REPORT_EXPLANATION" ,
+      confidence: 0.85,
+      requiresDocuments: true,
+      requiresReferenceRetrieval: false,
+      requiresClarification: false,
+    };
+  }
+
+  // Health trend question
+  const trendScore = matchPatterns(trimmed, HEALTH_TREND_PATTERNS);
+  if (trendScore > 0) {
+    return {
+      intent: "HEALTH_TREND_QUESTION" ,
+      confidence: 0.8,
+      requiresDocuments: true,
+      requiresReferenceRetrieval: false,
+      requiresClarification: false,
+    };
+  }
+
+  // Medication routine question
+  const routineScore = matchPatterns(trimmed, ROUTINE_QUESTION_PATTERNS);
+  if (routineScore > 0) {
+    return {
+      intent: "MEDICATION_ROUTINE_QUESTION" ,
+      confidence: 0.8,
+      requiresDocuments: true,
       requiresReferenceRetrieval: false,
       requiresClarification: false,
     };

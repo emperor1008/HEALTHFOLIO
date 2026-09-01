@@ -61,6 +61,63 @@ export type ExtractedField = z.infer<typeof ExtractedFieldSchema>;
 export type DocumentClassification = z.infer<typeof DocumentClassificationSchema>;
 export type AgentNextAction = z.infer<typeof AgentNextActionSchema>;
 
+// ─── Medical Measurement Extraction ────────────────────────────────────────
+
+export const MedicalMeasurementExtractionSchema = z.object({
+  originalTestName: z.string().min(1),
+  normalizedTestName: z.string().min(1),
+  valueNumeric: z.number().nullable(),
+  valueText: z.string().nullable(),
+  originalUnit: z.string().nullable(),
+  referenceLow: z.number().nullable(),
+  referenceHigh: z.number().nullable(),
+  referenceText: z.string().nullable(),
+  reportFlag: z.string().nullable(),
+  specimenCollectedAt: z.string().nullable(),
+  observedAt: z.string().nullable(),
+  reportIssuedAt: z.string().nullable(),
+  pageNumber: z.number().int().positive(),
+  evidenceText: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+}).refine(
+  (data) => data.valueNumeric !== null || data.valueText !== null,
+  { message: "At least one of valueNumeric or valueText must be present" }
+);
+
+export type MedicalMeasurementExtraction = z.infer<typeof MedicalMeasurementExtractionSchema>;
+
+// Correction schema — validated before submission
+export const MeasurementCorrectionSchema = z.object({
+  decision: z.enum(["verified", "corrected", "rejected"]),
+  correctionReason: z.string().min(1, "A reason for the correction is required").optional(),
+  correctedValueNumeric: z.number().finite().nullable().optional(),
+  correctedValueText: z.string().nullable().optional(),
+  correctedReferenceLow: z.number().finite().nullable().optional(),
+  correctedReferenceHigh: z.number().finite().nullable().optional(),
+  correctedReferenceText: z.string().nullable().optional(),
+  correctedReportFlag: z.string().nullable().optional(),
+}).refine(
+  (data) => {
+    if (data.decision === "corrected") {
+      // Must have a reason
+      if (!data.correctionReason) return false;
+      // Must have at least one corrected field
+      return (
+        data.correctedValueNumeric !== null && data.correctedValueNumeric !== undefined ||
+        data.correctedValueText !== null && data.correctedValueText !== undefined ||
+        data.correctedReferenceLow !== null && data.correctedReferenceLow !== undefined ||
+        data.correctedReferenceHigh !== null && data.correctedReferenceHigh !== undefined ||
+        data.correctedReferenceText !== null && data.correctedReferenceText !== undefined ||
+        data.correctedReportFlag !== null && data.correctedReportFlag !== undefined
+      );
+    }
+    return true;
+  },
+  { message: "Corrections require a reason and at least one corrected field" }
+);
+
+export type MeasurementCorrection = z.infer<typeof MeasurementCorrectionSchema>;
+
 // Brief content type (shape matches what generateBrief produces)
 export interface BriefContent {
   appointmentDetails: {

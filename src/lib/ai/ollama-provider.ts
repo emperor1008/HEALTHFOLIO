@@ -12,6 +12,8 @@ const OLLAMA_BASE_URL =
   process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434";
 const OLLAMA_TEXT_MODEL =
   process.env.OLLAMA_TEXT_MODEL || "qwen2.5:3b";
+const OLLAMA_CHAT_MODEL =
+  process.env.OLLAMA_CHAT_MODEL || OLLAMA_TEXT_MODEL;
 const TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || "120000");
 
 /**
@@ -345,7 +347,7 @@ Return JSON with these fields:
             content: `Document context:\n\n${contextText.substring(0, 6000)}\n\nQuestion: ${question}`,
           },
         ],
-        { format: "json" }
+        { model: OLLAMA_CHAT_MODEL, format: "json" }
       );
 
       const result = raw as {
@@ -379,6 +381,14 @@ Return JSON with these fields:
         suggestions: [],
       };
     }
+  }
+
+  async callStructuredChat<T>(
+    messages: Array<{ role: string; content: string }>,
+    schema: z.ZodType<T>,
+    options?: { temperature?: number }
+  ): Promise<T> {
+    return callOllamaWithRetry(messages, schema) as Promise<T>;
   }
 }
 

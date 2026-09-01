@@ -174,9 +174,9 @@ describe("Document Classification Schema", () => {
 });
 
 describe("Tool Names Schema", () => {
-  it("should have exactly 10 tools", async () => {
+  it("should have exactly 42 tools", async () => {
     const { ALL_TOOL_NAMES } = await import("@/lib/tools/tool-names");
-    expect(ALL_TOOL_NAMES).toHaveLength(10);
+    expect(ALL_TOOL_NAMES).toHaveLength(42);
   });
 
   it("should include all required tools", async () => {

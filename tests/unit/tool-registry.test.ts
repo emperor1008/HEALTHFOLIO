@@ -162,8 +162,8 @@ describe("Tool Registry", () => {
   });
 
   describe("New tools", () => {
-    it("should include all 10 tools in allowlist", () => {
-      expect(ALLOWED_TOOLS).toHaveLength(10);
+    it("should include all 42 tools in allowlist", () => {
+      expect(ALLOWED_TOOLS).toHaveLength(42);
     });
 
     it("should include document.replace in allowlist", () => {
@@ -188,8 +188,8 @@ describe("Tool Registry", () => {
       expect(ALLOWED_TOOLS).toEqual(ALL_TOOL_NAMES);
     });
 
-    it("should have exactly 10 tool names", () => {
-      expect(ALL_TOOL_NAMES).toHaveLength(10);
+    it("should have exactly 30 tool names", () => {
+      expect(ALL_TOOL_NAMES).toHaveLength(42);
     });
 
     it("should contain all expected tool names", () => {
@@ -203,11 +203,22 @@ describe("Tool Registry", () => {
       expect(ALL_TOOL_NAMES).toContain("calendar.export_ics");
       expect(ALL_TOOL_NAMES).toContain("reminder.create");
       expect(ALL_TOOL_NAMES).toContain("pdf.export");
+      expect(ALL_TOOL_NAMES).toContain("measurement.extract");
+      expect(ALL_TOOL_NAMES).toContain("measurement.verify");
+      expect(ALL_TOOL_NAMES).toContain("trend.compute");
+      expect(ALL_TOOL_NAMES).toContain("trend.rebuild");
+      expect(ALL_TOOL_NAMES).toContain("document.check_duplicate");
+      expect(ALL_TOOL_NAMES).toContain("document.classify_ai");
+      expect(ALL_TOOL_NAMES).toContain("document.extract_metadata");
+      expect(ALL_TOOL_NAMES).toContain("document.extract_prescription_items");
+      expect(ALL_TOOL_NAMES).toContain("document.organize");
+      expect(ALL_TOOL_NAMES).toContain("document.find_relationships");
+      expect(ALL_TOOL_NAMES).toContain("document.verify_organization");
     });
   });
 
   describe("AI schema validates all tools", () => {
-    it("should validate all 10 tools through AgentNextActionSchema", async () => {
+    it("should validate all 14 tools through AgentNextActionSchema", async () => {
       const { AgentNextActionSchema } = await import("@/lib/ai/schemas");
       for (const tool of ALL_TOOL_NAMES) {
         const result = AgentNextActionSchema.safeParse({
