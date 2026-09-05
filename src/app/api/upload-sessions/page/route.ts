@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import crypto from "crypto";
 
 const pageIntentSchema = z.object({
   sessionId: z.string().min(1),
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Create document page record
-  const pageId = nanoid(21);
+  const pageId = crypto.randomUUID();
   const idempotencyKey = `${documentId}::${pageNumber}::${fileHash}`;
 
   // Check idempotency

@@ -14,7 +14,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "secrets:scan": "node scripts/scan-secrets.js",
-    "ai:check": "node scripts/ai-check.js"
+    "ai:check": "node scripts/ai-check.js",
+    "db:verify": "node scripts/db-verify.js",
+    "verify:all": "npm run secrets:scan && npm run lint && npm run typecheck && npm run test && npm run build && npm run ai:check"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

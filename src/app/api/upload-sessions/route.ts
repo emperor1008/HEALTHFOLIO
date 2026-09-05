@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import crypto from "crypto";
 
 const createSessionSchema = z.object({
   portfolioId: z.string().uuid(),
@@ -73,11 +74,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Create document record (single-page or multi-page)
-  const documentId = nanoid(21);
+  const documentId = crypto.randomUUID();
   const safeFilename = `${nanoid(12)}.jpg`;
 
   // Create upload session
-  const sessionId = nanoid(21);
+  const sessionId = crypto.randomUUID();
   const { data: session, error: sessionError } = await admin
     .from("upload_sessions")
     .insert({

@@ -2,31 +2,35 @@
 
 **Your health history, clearly organized.**
 
-Agentic medical record intelligence and consultation preparation platform.
+An intelligent personal health-record platform that securely organizes medical documents, extracts verifiable information, tracks health trends, and helps users prepare for informed healthcare conversations.
 
 ---
 
 ## What is Healthfolio?
 
-Healthfolio is a responsive web application that helps patients organize scattered medical records—prescriptions, lab reports, discharge summaries, and scan images—into a verified chronological timeline, then prepare for upcoming appointments with a consultation brief, checklist, and calendar export.
+Healthfolio is a responsive web application that helps patients organize scattered medical records — prescriptions, lab reports, discharge summaries, and scan images — into a verified chronological timeline. It extracts structured information using local AI, tracks health trends over time, manages medication routines, and prepares users for upcoming appointments with evidence-backed consultation briefs.
 
-### Key Features
+### Core Features
 
 - **Secure Document Upload** — PDF, PNG, JPEG, WEBP with validation, private storage, and duplicate detection
 - **Real OCR** — Tesseract.js for images, pdf-parse for text PDFs, scanned-PDF image fallback
 - **Local AI Processing** — Ollama-powered document classification and structured extraction
 - **Confidence Review** — Every extracted fact shows confidence level; uncertain items require user confirmation
 - **Verified Health Timeline** — Chronological events with source citations and verification status
+- **Health Tracking** — Track verified measurements over time with graphs, trends, and time-range filtering
+- **Test Report Intelligence** — Understand lab results with reference ranges, abnormal flags, and verification status
+- **Medicine Intelligence** — Look up authoritative medicine information from RxNorm, DailyMed, and openFDA
+- **Medication Routine** — Convert verified prescriptions into user-confirmed reminder schedules
 - **Agentic Processing** — Observable agent loop with explicit states, tool allowlist, and failure recovery
-- **Ask Healthfolio** — Chat assistant that answers questions using your uploaded records with citations
+- **Ask Healthfolio** — Conversational assistant with typo correction, medicine/test name matching, and record citations
 - **Consultation Brief** — Appointment-focused summary with verified events, questions, and checklist
 - **PDF Export** — Download a professional consultation brief as PDF
 - **Calendar Export** — Download a standards-compliant `.ics` calendar event
-- **Privacy First** — Private storage, row-level security, signed URLs, no data sharing
+- **Privacy First** — Private storage, row-level security, signed URLs, anonymous sessions, local AI
 
 ### Medical Safety Boundary
 
-Healthfolio organizes medical information and helps you prepare for consultations. **It does not diagnose conditions, recommend treatment, or replace a healthcare professional.**
+Healthfolio organizes medical information and helps you prepare for consultations. **It does not diagnose conditions, recommend treatment, prescribe medicine, calculate doses, or replace a healthcare professional.**
 
 ---
 
@@ -41,7 +45,7 @@ Healthfolio organizes medical information and helps you prepare for consultation
 ### 1. Clone and install
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/emperor1008/HEALTHFOLIO.git
 cd healthfolio
 npm install
 ```
@@ -52,7 +56,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` with your own values:
+Edit `.env.local` with your own values (see `.env.example` for all available variables):
 
 ```dotenv
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -63,6 +67,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 AI_PROVIDER=ollama
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_TEXT_MODEL=qwen2.5:3b
+OLLAMA_CHAT_MODEL=qwen3:8b
 OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 AI_REQUEST_TIMEOUT_MS=120000
 ```
@@ -73,6 +78,7 @@ AI_REQUEST_TIMEOUT_MS=120000
 
 ```bash
 ollama pull qwen2.5:3b
+ollama pull qwen3:8b
 ollama pull nomic-embed-text
 ```
 
@@ -89,14 +95,25 @@ ollama serve
 3. Open the SQL Editor and run each migration in order:
    - `supabase/migrations/001_initial_schema.sql`
    - `supabase/migrations/002_storage_bucket.sql`
-   - `supabase/migrations/003_agent_extensions.sql`
+   - `supabase/migrations/003_add_audit_policy_and_constraints.sql`
    - `supabase/migrations/004_performance_indexes.sql`
+   - `supabase/migrations/005_portfolio_unique_constraint.sql`
+   - `supabase/migrations/006_medical_measurements.sql`
+   - `supabase/migrations/007_measurement_review_rpc.sql`
+   - `supabase/migrations/008_document_organization.sql`
+   - `supabase/migrations/009_medicine_intelligence.sql`
+   - `supabase/migrations/010_test_report_intelligence.sql`
+   - `supabase/migrations/011_smart_document_capture.sql`
+   - `supabase/migrations/012_storage_webp_support.sql`
+   - `supabase/migrations/013_medication_routine_agent.sql`
 4. Go to **Authentication → URL Configuration** and add redirect URLs:
    ```
    http://localhost:3000/auth/callback
    http://localhost:3000/update-password
    http://localhost:3000/**
    ```
+
+> **Note:** Migration 002 creates the private `documents` storage bucket. If it requires elevated permissions, create the bucket manually in the Supabase Dashboard under **Storage** with the name `documents`, set it to private, and add the policies from the migration file.
 
 ### 5. Start the development server
 
@@ -117,10 +134,12 @@ Visit [http://localhost:3000](http://localhost:3000). A silent anonymous session
 | `npm start` | Start production server |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | TypeScript type checking |
-| `npm test` | Run Vitest unit tests |
+| `npm test` | Run Vitest unit tests (491 tests) |
 | `npm run test:e2e` | Run Playwright E2E tests |
 | `npm run format` | Format with Prettier |
 | `npm run secrets:scan` | Scan tracked files for committed secrets |
+| `npm run ai:check` | Verify Ollama connectivity and model availability |
+| `npm run verify:all` | Run full verification suite |
 
 ---
 
@@ -137,6 +156,9 @@ Visit [http://localhost:3000](http://localhost:3000). A silent anonymous session
 - **Database:** Supabase PostgreSQL with Row-Level Security
 - **Storage:** Supabase private bucket with signed URLs
 - **AI:** Ollama (local, zero-cost) through provider adapter
+  - `qwen2.5:3b` — Document classification and structured extraction
+  - `qwen3:8b` — Ask Healthfolio conversational chat
+  - `nomic-embed-text` — Text embeddings for similarity search
 - **OCR:** Tesseract.js for images, pdf-parse for text PDFs
 - **PDF Export:** jsPDF with jspdf-autotable
 - **Calendar:** ics library
@@ -147,31 +169,42 @@ Visit [http://localhost:3000](http://localhost:3000). A silent anonymous session
 ```
 healthfolio/
 ├── src/
-│   ├── app/           # Next.js App Router pages and API routes
-│   │   ├── (marketing)/  # Public landing page
-│   │   ├── (auth)/       # Sign-up, sign-in, password reset
-│   │   ├── (app)/        # Authenticated app pages
-│   │   ├── auth/         # Session bootstrap, callback
-│   │   └── api/          # Server API routes
-│   ├── components/    # React components
-│   │   ├── ui/            # Reusable UI primitives
-│   │   ├── navigation/    # Sidebar, TopBar, MobileNav
-│   │   └── branding/      # Splash screen, logo
-│   ├── lib/           # Core business logic
-│   │   ├── agent/         # Agent controller and state machine
-│   │   ├── ai/            # AI provider adapter (Ollama), schemas, safety
-│   │   ├── documents/     # Document ingestion and OCR pipeline
-│   │   ├── tools/         # Tool registry and allowlist
-│   │   └── supabase/      # Supabase client configuration
-│   └── types/         # TypeScript type declarations
+│   ├── app/                # Next.js App Router pages and API routes
+│   │   ├── (marketing)/    # Public landing page
+│   │   ├── (auth)/         # Sign-up, sign-in, password reset
+│   │   ├── (app)/          # Authenticated app pages
+│   │   │   ├── dashboard/  # Home dashboard
+│   │   │   ├── records/    # Medical records and reports
+│   │   │   ├── timeline/   # Verified health timeline
+│   │   │   ├── health-tracking/  # Measurement tracking and graphs
+│   │   │   ├── medicines/  # Medicine intelligence
+│   │   │   ├── routine/    # Medication routine plans
+│   │   │   ├── ask/        # Ask Healthfolio chat
+│   │   │   ├── review/     # Extraction review queue
+│   │   │   ├── preparation/ # Consultation preparation
+│   │   │   ├── runs/       # Agent run detail
+│   │   │   └── settings/   # Account and settings
+│   │   ├── auth/           # Session bootstrap, callback
+│   │   └── api/            # Server API routes
+│   ├── components/         # React components
+│   ├── lib/                # Core business logic
+│   │   ├── agent/          # Agent controller and state machine
+│   │   ├── ai/             # AI provider adapter (Ollama), schemas, safety
+│   │   ├── assistant/      # Ask Healthfolio: intent router, normalizer, matchers
+│   │   ├── documents/      # Document ingestion and OCR pipeline
+│   │   ├── measurements/   # Health measurement extraction and tracking
+│   │   ├── medicines/      # Medicine intelligence (RxNorm, DailyMed, openFDA)
+│   │   ├── reports/        # Test report intelligence
+│   │   ├── routines/       # Medication routine agent
+│   │   ├── tools/          # Tool registry and allowlist
+│   │   └── supabase/       # Supabase client configuration
+│   └── types/              # TypeScript type declarations
 ├── supabase/
-│   └── migrations/    # SQL database migrations
-├── scripts/
-│   └── scan-secrets.js  # Pre-commit secret scanner
-├── tests/
-│   ├── unit/          # Unit tests
-│   └── e2e/           # End-to-end tests
-└── public/            # Static assets (branding, images)
+│   └── migrations/         # SQL database migrations (001–013)
+├── scripts/                # Build and verification scripts
+├── tests/                  # Unit and integration tests (491 tests)
+├── docs/                   # Technical documentation
+└── public/                 # Static assets
 ```
 
 ### Agent Loop
@@ -221,7 +254,8 @@ All tool names are defined in a single authoritative source (`src/lib/tools/tool
 - **No dummy data** — Empty states for new accounts
 - **Secret scanning** — Run `npm run secrets:scan` before committing
 - **Never commit credentials** — `.env.local` is gitignored and must never be pushed
-- **Rotate exposed secrets** — If any credential was previously pushed to a public repository, rotate it immediately
+- **Local AI** — Medical data stays on your machine; Ollama processes locally
+- **Prompt injection protection** — User messages treated as untrusted data
 
 ---
 
@@ -235,8 +269,9 @@ All tool names are defined in a single authoritative source (`src/lib/tools/tool
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | **Server-only** | Optional* |
 | `AI_PROVIDER` | AI provider (`ollama`) | Server-only | Yes |
 | `OLLAMA_BASE_URL` | Ollama endpoint URL | Server-only | Yes |
-| `OLLAMA_TEXT_MODEL` | Text model name | Server-only | Yes |
-| `OLLAMA_EMBEDDING_MODEL` | Embedding model name | Server-only | Optional |
+| `OLLAMA_TEXT_MODEL` | Extraction model (`qwen2.5:3b`) | Server-only | Yes |
+| `OLLAMA_CHAT_MODEL` | Chat model (`qwen3:8b`) | Server-only | Yes |
+| `OLLAMA_EMBEDDING_MODEL` | Embedding model (`nomic-embed-text`) | Server-only | Optional |
 | `AI_REQUEST_TIMEOUT_MS` | AI request timeout (ms) | Server-only | No |
 | `OCR_PROVIDER` | OCR engine (`tesseract`) | Server-only | No |
 | `OCR_LANGUAGES` | OCR languages | Server-only | No |
@@ -253,6 +288,21 @@ All tool names are defined in a single authoritative source (`src/lib/tools/tool
 
 ---
 
+## Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| Ollama not responding | Run `ollama serve` and verify at http://127.0.0.1:11434 |
+| Model not found | Run `ollama pull qwen2.5:3b` (or the configured model) |
+| AI timeout | Increase `AI_REQUEST_TIMEOUT_MS` or ensure Ollama has sufficient memory |
+| Session not persisting | Check Supabase redirect URLs include `http://localhost:3000/**` |
+| Upload fails | Verify the `documents` storage bucket exists and is private |
+| Database errors | Ensure all migrations (001–013) are applied in the Supabase SQL Editor |
+| OCR returns empty text | Ensure image resolution is sufficient (at least 300 DPI recommended) |
+| 406 errors on dashboard | Non-critical; caused by empty result on `.single()` queries |
+
+---
+
 ## Testing
 
 ### Unit Tests
@@ -265,10 +315,27 @@ Tests cover:
 - Medical safety boundaries
 - Tool registry allowlist and state permissions
 - AI output schema validation
+- Ask Healthfolio intent classification, normalization, and matching
 - ICS calendar generation
 - Input validation
 - OCR file signature validation
-- Demo mode disabled in production
+- Medicine intelligence lookups
+- Measurement trend calculations
+- Safe error mapping
+
+### AI Live Check
+
+```bash
+npm run ai:check
+```
+
+Verifies:
+- Ollama service is reachable
+- Configured text model exists
+- Configured chat model exists
+- Configured embedding model exists
+- Structured chat works
+- Embedding generation works
 
 ### Secret Scanner
 
@@ -278,24 +345,27 @@ npm run secrets:scan
 
 Scans all tracked files for likely API keys, connection strings, private keys, and hardcoded credentials. Run before every commit.
 
-### E2E Tests (Playwright)
+### Full Verification
 
 ```bash
-npm run test:e2e
+npm run verify:all
 ```
+
+Runs: secrets scan, lint, typecheck, unit tests, build, and AI check.
 
 ---
 
 ## Limitations
 
-- Requires Ollama running locally for AI features
-- OCR quality depends on document image resolution
+- Requires Ollama running locally for AI features (no cloud AI fallback)
+- OCR quality depends on document image resolution and scan quality
+- No multi-language support beyond English
+- No live EHR integration or real-time clinician communication
+- Background push notifications require Web Push configuration
 - Single user role (patient/caregiver)
-- One agent per workflow
-- No live EHR integration
-- No real-time clinician chat
+- No offline document processing
+- Storage bucket creation may require manual setup via Supabase Dashboard
 - AI is not a medical professional
-- Requires internet for Supabase; local for Ollama
 
 ---
 
@@ -305,4 +375,21 @@ MIT
 
 ---
 
-*Healthfolio organizes medical information and helps you prepare for consultations. It does not diagnose conditions, recommend treatment, or replace a healthcare professional.*
+## Third-Party Acknowledgements
+
+- [Next.js](https://nextjs.org/) — React framework
+- [Supabase](https://supabase.com/) — Database, auth, and storage
+- [Ollama](https://ollama.com/) — Local AI inference
+- [Tesseract.js](https://tesseract.projectnaptha.com/) — Optical character recognition
+- [pdf-parse](https://www.npmjs.com/package/pdf-parse) — PDF text extraction
+- [Zod](https://zod.dev/) — Schema validation
+- [Tailwind CSS](https://tailwindcss.com/) — Utility-first CSS
+- [Framer Motion](https://www.framer.com/motion/) — Animation
+- [jsPDF](https://www.npmjs.com/package/jspdf) — PDF generation
+- [ics](https://www.npmjs.com/package/ics) — Calendar file generation
+- [Vitest](https://vitest.dev/) — Unit testing
+- [Playwright](https://playwright.dev/) — End-to-end testing
+
+---
+
+*Healthfolio organizes medical information and helps you prepare for consultations. It does not diagnose conditions, recommend treatment, prescribe medicine, calculate doses, or replace a healthcare professional.*

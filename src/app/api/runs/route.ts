@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/auth-helpers";
 import { z } from "zod";
 import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { goal, appointment, documentIds } = parsed.data;
-    const admin = createAdminClient();
+    const admin = createClient();
+    console.log("[runs] user.id:", user.id, "documentIds:", documentIds);
 
     // Get portfolio
     const { data: portfolios } = await admin
@@ -67,14 +68,19 @@ export async function POST(request: NextRequest) {
     const portfolioId = portfolios[0].id;
 
     // Verify documents belong to user
-    const { data: docs } = await admin
+    const { data: docs, error: docsError } = await admin
       .from("documents")
-      .select("id, status")
+      .select("id, status, portfolio_id")
       .eq("user_id", user.id)
-      .eq("portfolio_id", portfolioId)
       .in("id", documentIds);
 
+    if (docsError) {
+      console.error("[runs] docs query error:", docsError.message, docsError.code);
+    }
+
+    // Verify all requested documents are accessible
     if (!docs || docs.length !== documentIds.length) {
+      console.error("[runs] docs mismatch:", { requested: documentIds.length, found: docs?.length ?? 0, portfolioId, docPortfolioIds: docs?.map(d => d.portfolio_id) });
       return NextResponse.json(
         formatErrorResponse(
           createError("INVALID_REQUEST", "One or more documents are not accessible."),

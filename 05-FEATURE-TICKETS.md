@@ -6,7 +6,7 @@ Build tickets in numeric order unless a dependency says otherwise. Give one tick
 
 Priority labels:
 
-- **P0 Must-have:** required for Round 1 submission
+- **P0 Must-have:** required for production release
 - **P1 Should-have:** add after all P0 tickets pass
 - **P2 Nice-to-have:** post-MVP
 
@@ -313,7 +313,7 @@ Priority labels:
 - Date changes trigger visible adaptation.
 - Calendar content contains no unnecessary health details.
 
-## Phase 6 — Resilience and submission
+## Phase 6 — Resilience and release
 
 ### HF-021 — Implement global error and offline states
 
@@ -374,7 +374,7 @@ Priority labels:
 - Large processing tasks do not freeze the UI.
 - Reduced-motion preference is honored.
 
-### HF-025 — Repository and submission documentation
+### HF-025 — Repository and release documentation
 
 **Priority:** P0 Must-have  
 **Dependencies:** All P0 tickets
@@ -425,6 +425,6 @@ Localize navigation, errors and reminder templates. Medical record text remains 
 2. HF-010–HF-013: visible AI document intelligence
 3. HF-014–HF-017: agent execution and recovery
 4. HF-018–HF-020: final useful artifacts
-5. HF-021–HF-025: resilience, testing and submission
+5. HF-021–HF-025: resilience, testing and release
 6. Add P1 only if every P0 demo rehearsal passes
 

@@ -205,7 +205,9 @@ export default function PreparePage() {
 
           setFiles((prev) =>
             prev.map((f) =>
-              f.id === fileEntry.id ? { ...f, status: "ready" as const, progress: 100 } : f
+              f.id === fileEntry.id
+                ? { ...f, id: result.data.documentId, status: "ready" as const, progress: 100 }
+                : f
             )
           );
         } catch {

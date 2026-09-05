@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/auth-helpers";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import crypto from "crypto";
 import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
 
 const uploadIntentSchema = z.object({
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     // Generate safe filename and storage path
     const safeFilename = `${nanoid(12)}.${ext}`;
-    const documentId = nanoid(21);
+    const documentId = crypto.randomUUID();
     const storagePath = `${user.id}/${portfolioId}/${documentId}/${safeFilename}`;
 
     // Create upload URL
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("[documents] user.id:", user.id, "portfolioId:", portfolioId, "documentId:", documentId);
     // Create document record
     const { error: docError } = await admin.from("documents").insert({
       id: documentId,
