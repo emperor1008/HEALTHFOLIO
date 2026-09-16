@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   LineChart,
   Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 
 interface ChartPoint {
   measurementId: string;
@@ -44,18 +45,24 @@ function formatDateLabel(dateStr: string): string {
   }
 }
 
-function CustomTooltip({ active, payload, label }: any) {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload?: ChartPoint }>;
+  onOpenEvidence?: (point: ChartPoint) => void;
+}
+
+function CustomTooltip({ active, payload, onOpenEvidence }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
 
-  const point = payload[0]?.payload as ChartPoint;
+  const point = payload[0]?.payload as ChartPoint | undefined;
   if (!point) return null;
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-3 shadow-lg">
+    <div className="rounded-card border border-border bg-surface p-3 shadow-md">
       <p className="text-sm font-medium text-text-primary">
         {point.value} {point.unit || ""}
       </p>
-      <p className="mt-1 text-xs text-text-secondary">
+      <p className="mt-0.5 text-xs text-text-secondary">
         {formatDateLabel(point.date)}
       </p>
       {point.documentName && (
@@ -63,21 +70,32 @@ function CustomTooltip({ active, payload, label }: any) {
           Source: {point.documentName}, page {point.pageNumber}
         </p>
       )}
-      {point.referenceLow !== null && point.referenceHigh !== null && (
-        <p className="mt-1 text-xs text-text-secondary">
-          Range: {point.referenceLow}–{point.referenceHigh}
+      {point.evidenceText && (
+        <p className="mt-1 max-w-[220px] truncate text-xs italic text-text-secondary">
+          &ldquo;{point.evidenceText}&rdquo;
         </p>
       )}
-      {point.reportFlag && (
-        <p className="mt-1 text-xs text-warning">
-          Flag: {point.reportFlag}
+      {point.referenceLow !== null && point.referenceHigh !== null && (
+        <p className="mt-1 text-xs text-text-secondary">
+          Report range: {point.referenceLow}–{point.referenceHigh}
         </p>
+      )}
+      {onOpenEvidence && (
+        <button
+          onClick={() => onOpenEvidence(point)}
+          className="mt-2 min-h-touch text-xs font-medium text-primary hover:underline"
+        >
+          Open document context
+        </button>
       )}
     </div>
   );
 }
 
 export default function TrendChart({ points, unit, testName }: TrendChartProps) {
+  const reduceMotion = useReducedMotion();
+  const [evidencePoint, setEvidencePoint] = useState<ChartPoint | null>(null);
+
   const chartData = useMemo(
     () =>
       points.map((p) => ({
@@ -106,7 +124,7 @@ export default function TrendChart({ points, unit, testName }: TrendChartProps) 
   const yMin = Math.floor((minVal - padding) * 100) / 100;
   const yMax = Math.ceil((maxVal + padding) * 100) / 100;
 
-  // Find reference lines
+  // Reference range lines — only when printed on the source reports
   const refLow = chartData.find((d) => d.referenceLow !== null)?.referenceLow;
   const refHigh = chartData.find((d) => d.referenceHigh !== null)?.referenceHigh;
 
@@ -119,68 +137,73 @@ export default function TrendChart({ points, unit, testName }: TrendChartProps) 
       <ResponsiveContainer width="100%" height={300}>
         <LineChart
           data={chartData}
-          margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+          margin={{ top: 10, right: 16, left: 0, bottom: 10 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis
             dataKey="dateLabel"
-            tick={{ fontSize: 12, fill: "#6b7280" }}
+            tick={{ fontSize: 12, fill: "#576B66" }}
             tickLine={false}
-            axisLine={{ stroke: "#e5e7eb" }}
+            axisLine={{ stroke: "#D8DFDA" }}
           />
           <YAxis
             domain={[yMin, yMax]}
-            tick={{ fontSize: 12, fill: "#6b7280" }}
+            tick={{ fontSize: 12, fill: "#576B66" }}
             tickLine={false}
-            axisLine={{ stroke: "#e5e7eb" }}
+            axisLine={{ stroke: "#D8DFDA" }}
+            width={44}
             label={{
               value: unit || "",
               angle: -90,
               position: "insideLeft",
-              style: { fontSize: 12, fill: "#6b7280" },
+              style: { fontSize: 12, fill: "#576B66" },
             }}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip
+            content={<CustomTooltip onOpenEvidence={setEvidencePoint} />}
+            cursor={{ stroke: "#D8DFDA", strokeDasharray: "4 4" }}
+          />
           {refLow !== null && refLow !== undefined && (
             <ReferenceLine
               y={refLow}
-              stroke="#22c55e"
+              stroke="#18794E"
               strokeDasharray="5 5"
-              strokeOpacity={0.5}
+              strokeOpacity={0.45}
               label={{
-                value: `Low: ${refLow}`,
-                position: "right",
-                style: { fontSize: 10, fill: "#22c55e" },
+                value: `Report low ${refLow}`,
+                position: "insideBottomRight",
+                style: { fontSize: 10, fill: "#18794E" },
               }}
             />
           )}
           {refHigh !== null && refHigh !== undefined && (
             <ReferenceLine
               y={refHigh}
-              stroke="#22c55e"
+              stroke="#A15C00"
               strokeDasharray="5 5"
-              strokeOpacity={0.5}
+              strokeOpacity={0.45}
               label={{
-                value: `High: ${refHigh}`,
-                position: "right",
-                style: { fontSize: 10, fill: "#22c55e" },
+                value: `Report high ${refHigh}`,
+                position: "insideTopRight",
+                style: { fontSize: 10, fill: "#A15C00" },
               }}
             />
           )}
           <Line
             type="linear"
             dataKey="value"
-            stroke="#0d9488"
+            stroke="#0F5C5E"
             strokeWidth={2}
+            animationDuration={reduceMotion ? 0 : 700}
+            animationEasing="ease-out"
             dot={{
-              r: 5,
-              fill: "#0d9488",
+              r: 4.5,
+              fill: "#0F5C5E",
               stroke: "#fff",
               strokeWidth: 2,
             }}
             activeDot={{
-              r: 7,
-              fill: "#0d9488",
+              r: 6.5,
+              fill: "#0F5C5E",
               stroke: "#fff",
               strokeWidth: 2,
             }}
@@ -188,42 +211,116 @@ export default function TrendChart({ points, unit, testName }: TrendChartProps) 
         </LineChart>
       </ResponsiveContainer>
 
-      {/* Data table for accessibility */}
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full text-sm" role="table">
-          <caption className="sr-only">
-            Data points for {testName.replace(/_/g, " ")}
-          </caption>
-          <thead>
-            <tr className="border-b border-border text-left text-xs font-medium uppercase text-text-secondary">
-              <th className="pb-2 pr-4">Date</th>
-              <th className="pb-2 pr-4">Value</th>
-              <th className="pb-2 pr-4">Range</th>
-              <th className="pb-2">Source</th>
-            </tr>
-          </thead>
-          <tbody>
-            {chartData.map((point) => (
-              <tr key={point.measurementId} className="border-b border-border/50">
-                <td className="py-2 pr-4 text-text-secondary">
+      {/* Evidence list — each point links to its original document context */}
+      <div className="mt-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+          Evidence for each point
+        </p>
+        <ul className="mt-2 space-y-1.5">
+          {chartData.map((point) => (
+            <li
+              key={point.measurementId}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-border/60 bg-surface px-3 py-2 text-sm"
+            >
+              <span className="text-text-primary">
+                <span className="font-medium">
+                  {point.value}
+                  {point.unit ? ` ${point.unit}` : ""}
+                </span>
+                <span className="ml-2 text-text-secondary">
                   {formatDateLabel(point.date)}
-                </td>
-                <td className="py-2 pr-4 font-medium text-text-primary">
-                  {point.value} {point.unit || ""}
-                </td>
-                <td className="py-2 pr-4 text-text-secondary">
-                  {point.referenceLow !== null && point.referenceHigh !== null
-                    ? `${point.referenceLow}–${point.referenceHigh}`
-                    : "—"}
-                </td>
-                <td className="py-2 text-text-secondary">
-                  {point.documentName || "Unknown"}, p.{point.pageNumber}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </span>
+                {point.reportFlag && (
+                  <span className="ml-2 text-xs text-warning">
+                    Flagged: {point.reportFlag}
+                  </span>
+                )}
+              </span>
+              <span className="text-xs text-text-secondary">
+                {point.documentName || "Unknown document"}, p.{point.pageNumber}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
+
+      {/* Evidence drawer */}
+      {evidencePoint && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Source evidence"
+          onClick={() => setEvidencePoint(null)}
+        >
+          <div
+            className="animate-rise w-full max-w-md rounded-card border border-border bg-surface p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-semibold text-text-primary">
+              Source evidence
+            </h3>
+            <dl className="mt-4 space-y-3 text-sm">
+              <div>
+                <dt className="text-xs uppercase text-text-secondary">Value</dt>
+                <dd className="text-text-primary">
+                  {evidencePoint.value} {evidencePoint.unit || ""}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase text-text-secondary">Date</dt>
+                <dd className="text-text-primary">
+                  {formatDateLabel(evidencePoint.date)}
+                </dd>
+              </div>
+              {evidencePoint.referenceLow !== null &&
+                evidencePoint.referenceHigh !== null && (
+                  <div>
+                    <dt className="text-xs uppercase text-text-secondary">
+                      Report range
+                    </dt>
+                    <dd className="text-text-primary">
+                      {evidencePoint.referenceLow}–{evidencePoint.referenceHigh}
+                    </dd>
+                  </div>
+                )}
+              <div>
+                <dt className="text-xs uppercase text-text-secondary">
+                  Source document
+                </dt>
+                <dd className="text-text-primary">
+                  {evidencePoint.documentName || "Unknown document"}, page{" "}
+                  {evidencePoint.pageNumber}
+                </dd>
+              </div>
+              {evidencePoint.evidenceText && (
+                <div>
+                  <dt className="text-xs uppercase text-text-secondary">
+                    Text on the report
+                  </dt>
+                  <dd className="mt-1 rounded-card bg-canvas p-3 italic text-text-secondary">
+                    &ldquo;{evidencePoint.evidenceText}&rdquo;
+                  </dd>
+                </div>
+              )}
+            </dl>
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <Link
+                href={`/records/reports/${evidencePoint.documentId}`}
+                className="min-h-touch px-1 py-2 text-sm font-medium text-primary hover:underline"
+              >
+                Open the original document
+              </Link>
+              <button
+                onClick={() => setEvidencePoint(null)}
+                className="min-h-touch rounded-card border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-canvas"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

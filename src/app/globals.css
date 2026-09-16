@@ -57,4 +57,74 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Skeleton shimmer — calm, warm, low contrast */
+  .skeleton {
+    @apply relative overflow-hidden rounded-card bg-sage-surface;
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(216, 226, 220, 0.55) 50%,
+      transparent 100%
+    );
+    animation: hf-shimmer 1.6s infinite;
+  }
+
+  @keyframes hf-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Gentle entrance for page content (paired with framer-motion where used) */
+  .animate-rise {
+    animation: hf-rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes hf-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-up {
+    animation: hf-slide-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes hf-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Quiet luxury headings */
+  .heading-luxury {
+    @apply font-semibold tracking-tight text-primary-dark;
+  }
+
+  /* Quiet luxury card with subtle sage surface tint and gentle elevation */
+  .card-luxury {
+    @apply rounded-card border border-border bg-surface transition-all duration-200 hover:border-sage-border hover:shadow-sm;
+  }
+
+  .card-sage {
+    @apply rounded-card border border-sage-border bg-sage-surface;
+  }
 }

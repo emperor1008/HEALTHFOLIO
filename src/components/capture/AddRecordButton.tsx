@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { CaptureSourceSheet } from "./CaptureSourceSheet";
 import { CameraScanner } from "./CameraScanner";
@@ -11,6 +11,7 @@ import type { CaptureState, CapturedPage, CaptureSource } from "@/lib/capture/ty
 import { isValidCaptureTransition } from "@/lib/capture/types";
 import { createUploadSession, uploadPage, finalizeUploadSession, cancelUploadSession } from "@/lib/capture/upload";
 import { revokeAllPreviewUrls } from "@/lib/capture/image-transform";
+import { VerifiedCheck } from "@/components/ui/VerifiedCheck";
 
 interface AddRecordButtonProps {
   portfolioId: string;
@@ -19,6 +20,10 @@ interface AddRecordButtonProps {
   className?: string;
   onComplete?: (documentId: string) => void;
   label?: string;
+  /** Skips the source sheet and opens the given capture path directly */
+  sourceOverride?: "camera" | "file";
+  /** Hide the trigger button (renders only the flow overlays) */
+  hideTrigger?: boolean;
 }
 
 export function AddRecordButton({
@@ -28,6 +33,8 @@ export function AddRecordButton({
   className,
   onComplete,
   label = "Add record",
+  sourceOverride,
+  hideTrigger = false,
 }: AddRecordButtonProps) {
   const [state, setState] = useState<CaptureState>("idle");
   const [pages, setPages] = useState<CapturedPage[]>([]);
@@ -35,7 +42,10 @@ export function AddRecordButton({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [processingStage, setProcessingStage] = useState<string>("");
+  const [processingStageIndex, setProcessingStageIndex] = useState(0);
+  const [uploadStarting, setUploadStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const transition = useCallback(
     (to: CaptureState) => {
@@ -54,8 +64,14 @@ export function AddRecordButton({
     setSource(null);
     setSessionId(null);
     setDocumentId(null);
-    transition("choosing_source");
-  }, [transition]);
+    if (sourceOverride === "camera") {
+      transition("requesting_permission");
+    } else if (sourceOverride === "file") {
+      transition("choosing_source");
+    } else {
+      transition("choosing_source");
+    }
+  }, [transition, sourceOverride]);
 
   const handleSourceSelect = useCallback(
     async (selectedSource: CaptureSource) => {
@@ -98,79 +114,106 @@ export function AddRecordButton({
 
   const handleUpload = useCallback(async () => {
     if (pages.length === 0) return;
+    // Guard against double-clicks creating duplicate uploads/runs
+    if (uploadStarting) return;
+    setUploadStarting(true);
 
-    transition("preparing_upload");
+    try {
+      transition("preparing_upload");
 
-    // Create upload session
-    const { session, error: sessionError } = await createUploadSession({
-      portfolioId,
-      sourceType: source || "file",
-      pageCount: pages.length,
-      idempotencyKey: `upload-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
-    });
-
-    if (sessionError || !session) {
-      setError(sessionError || "Failed to create upload session");
-      transition("failed");
-      return;
-    }
-
-    setSessionId(session.id);
-    transition("uploading");
-
-    // Upload each page
-    const pageIds: string[] = [];
-    let hasError = false;
-
-    for (let i = 0; i < pages.length; i++) {
-      const page = pages[i];
-      const result = await uploadPage({
-        sessionId: session.id,
-        documentId: session.id, // Document ID is created server-side
-        page,
-        pageNumber: i + 1,
+      // Create upload session
+      const { session, error: sessionError } = await createUploadSession({
+        portfolioId,
+        sourceType: source || "file",
+        pageCount: pages.length,
+        idempotencyKey: `upload-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
       });
 
-      if (!result.success) {
-        setError(result.error || "Upload failed");
-        hasError = true;
-        break;
+      if (sessionError || !session) {
+        setError(sessionError || "Failed to create upload session");
+        transition("failed");
+        return;
       }
 
-      pageIds.push(page.id);
+      setSessionId(session.id);
+      transition("uploading");
+
+      // Upload each page sequentially (order matters)
+      const pageIds: string[] = [];
+      let hasError = false;
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const result = await uploadPage({
+          sessionId: session.id,
+          documentId: session.id, // Document ID is created server-side
+          page,
+          pageNumber: i + 1,
+        });
+
+        if (!result.success) {
+          setError(result.error || "Upload failed");
+          hasError = true;
+          break;
+        }
+
+        pageIds.push(page.id);
+      }
+
+      if (hasError) {
+        transition("failed");
+        return;
+      }
+
+      transition("uploaded");
+
+      // Finalize session
+      const { success: finalizeSuccess, documentId: docId, error: finalizeError } = await finalizeUploadSession({
+        sessionId: session.id,
+        pageOrder: pageIds,
+        idempotencyKey: `finalize-${session.id}`,
+      });
+
+      if (!finalizeSuccess || finalizeError) {
+        setError(finalizeError || "Finalization failed");
+        transition("failed");
+        return;
+      }
+
+      setDocumentId(docId || session.id);
+      transition("processing");
+      setProcessingStageIndex(0);
+      setProcessingStage("Reading document");
+
+      // Walk the visible journey through the real processing stages
+      const stages = [
+        "Reading document",
+        "Identifying type",
+        "Extracting details",
+        "Checking confidence",
+        "Organizing your record",
+      ];
+      let idx = 0;
+      const advance = () => {
+        idx += 1;
+        if (idx >= stages.length) return;
+        setProcessingStageIndex(idx);
+        setProcessingStage(stages[idx]);
+        timerRef.current = setTimeout(advance, 1400);
+      };
+      timerRef.current = setTimeout(advance, 1400);
+
+      // Complete once the journey has played through
+      const totalJourneyMs = stages.length * 1400 + 600;
+      setTimeout(() => {
+        transition("completed");
+        revokeAllPreviewUrls();
+        onComplete?.(docId || session.id);
+      }, totalJourneyMs);
+    } finally {
+      setUploadStarting(false);
     }
-
-    if (hasError) {
-      transition("failed");
-      return;
-    }
-
-    transition("uploaded");
-
-    // Finalize session
-    const { documentId: docId, error: finalizeError } = await finalizeUploadSession({
-      sessionId: session.id,
-      pageOrder: pageIds,
-      idempotencyKey: `finalize-${session.id}`,
-    });
-
-    if (finalizeError) {
-      setError(finalizeError);
-      transition("failed");
-      return;
-    }
-
-    setDocumentId(docId || session.id);
-    transition("processing");
-    setProcessingStage("Document uploaded successfully. Processing...");
-
-    // Wait briefly then complete
-    setTimeout(() => {
-      transition("completed");
-      revokeAllPreviewUrls();
-      onComplete?.(docId || session.id);
-    }, 2000);
-  }, [pages, portfolioId, source, transition, onComplete]);
+  }, [pages, portfolioId, source, transition, onComplete, uploadStarting]);
 
   const handleCancel = useCallback(async () => {
     if (sessionId) {
@@ -198,30 +241,39 @@ export function AddRecordButton({
   }, []);
 
   const handleClose = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     revokeAllPreviewUrls();
     setState("idle");
     setPages([]);
     setSource(null);
     setSessionId(null);
     setError(null);
+    setUploadStarting(false);
   }, []);
 
   return (
     <>
-      <Button
-        variant={variant}
-        size={size}
-        className={className}
-        onClick={handleOpen}
-        aria-label={label}
-      >
-        <span className="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          {label}
+      {!hideTrigger && (
+        <span data-add-record-trigger>
+        <Button
+          variant={variant}
+          size={size}
+          className={className}
+          onClick={handleOpen}
+          aria-label={label}
+        >
+          <span className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            {label}
+          </span>
+        </Button>
         </span>
-      </Button>
+      )}
 
       {/* Source Selection Sheet */}
       {state === "choosing_source" && (
@@ -263,10 +315,11 @@ export function AddRecordButton({
         />
       )}
 
-      {/* Processing Progress */}
+      {/* Processing Progress — real journey stages */}
       {state === "processing" && (
         <ProcessingProgress
           stage={processingStage}
+          stageIndex={processingStageIndex}
           documentId={documentId || undefined}
         />
       )}
@@ -292,11 +345,14 @@ export function AddRecordButton({
       {/* Completed State */}
       {state === "completed" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="rounded-card border border-border bg-surface p-6 shadow-xl max-w-sm w-full text-center">
-            <div className="text-4xl">✅</div>
-            <h3 className="mt-3 font-semibold text-text-primary">Record uploaded</h3>
+          <div className="animate-rise rounded-card border border-border bg-surface p-6 shadow-xl max-w-sm w-full text-center">
+            <div className="flex justify-center">
+              <VerifiedCheck size={56} />
+            </div>
+            <h3 className="mt-3 font-semibold text-text-primary">Record added</h3>
             <p className="mt-2 text-sm text-text-secondary">
-              Your document has been uploaded and is being processed.
+              Your document was uploaded. Healthfolio is organizing it —
+              you&apos;ll review anything uncertain next.
             </p>
             <Button
               variant="primary"

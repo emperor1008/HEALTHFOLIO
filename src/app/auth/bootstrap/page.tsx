@@ -1,19 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { ensureAnonymousSession } from "@/lib/supabase/session";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 
 /**
  * Silent anonymous authentication bootstrap.
- * Uses centralized session helper to prevent duplicate calls.
+ *
+ * Creates (or reuses) the anonymous session that isolates each visitor's
+ * private data, then continues to the original destination. Retries
+ * transient failures automatically before showing a calm recovery state.
+ * No technical details are ever surfaced.
  */
-export default function BootstrapPage() {
+
+const MAX_AUTO_RETRIES = 2;
+const RETRY_DELAY_MS = 1200;
+
+function BootstrapInner() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("Setting up your secure session…");
+  const searchParams = useSearchParams();
+  const [attempt, setAttempt] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Read the redirect target once; validated to an internal path.
+  const rawRedirect = searchParams.get("redirect") || "/dashboard";
+  const redirect = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//")
+    ? rawRedirect
+    : "/dashboard";
 
   useEffect(() => {
     let cancelled = false;
@@ -24,11 +42,16 @@ export default function BootstrapPage() {
       if (cancelled) return;
 
       if (user) {
-        router.replace("/dashboard");
+        router.replace(redirect);
+      } else if (attempt < MAX_AUTO_RETRIES) {
+        // Transient failure — retry quietly after a short delay
+        retryTimerRef.current = setTimeout(() => {
+          if (!cancelled) {
+            setAttempt((a) => a + 1);
+          }
+        }, RETRY_DELAY_MS);
       } else {
-        setError(
-          "Healthfolio could not create a secure session. Please refresh and try again."
-        );
+        setFailed(true);
       }
     }
 
@@ -36,10 +59,22 @@ export default function BootstrapPage() {
 
     return () => {
       cancelled = true;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
     };
-  }, [router]);
+  }, [attempt, router, redirect]);
 
-  if (error) {
+  const handleRetry = useCallback(() => {
+    setFailed(false);
+    setRetrying(true);
+    setAttempt(0);
+    // attempt reset triggers the effect; give the state a tick to settle
+    setTimeout(() => setRetrying(false), 50);
+  }, []);
+
+  if (failed) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <Card padding="lg" className="w-full max-w-md text-center">
@@ -47,12 +82,15 @@ export default function BootstrapPage() {
             🔒
           </span>
           <h1 className="mt-4 text-xl font-semibold text-text-primary">
-            Session setup failed
+            We couldn&apos;t open your health space yet
           </h1>
-          <p className="mt-2 text-text-secondary">{error}</p>
+          <p className="mt-2 text-text-secondary">
+            This is usually a connection issue. Your information is safe — please
+            try again.
+          </p>
           <button
-            onClick={() => window.location.reload()}
-            className="mt-4 rounded-card bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+            onClick={handleRetry}
+            className="mt-5 min-h-touch rounded-card bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
           >
             Try again
           </button>
@@ -65,8 +103,27 @@ export default function BootstrapPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card padding="lg" className="w-full max-w-md text-center">
         <Spinner size="lg" />
-        <p className="mt-4 text-text-secondary">{status}</p>
+        <p className="mt-4 text-text-secondary" aria-live="polite">
+          {retrying ? "Trying again…" : "Preparing your private health space…"}
+        </p>
       </Card>
     </div>
+  );
+}
+
+export default function BootstrapPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <Card padding="lg" className="w-full max-w-md text-center">
+            <Spinner size="lg" />
+            <p className="mt-4 text-text-secondary">Preparing your private health space…</p>
+          </Card>
+        </div>
+      }
+    >
+      <BootstrapInner />
+    </Suspense>
   );
 }
