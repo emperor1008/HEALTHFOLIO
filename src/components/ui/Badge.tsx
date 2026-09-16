@@ -16,7 +16,7 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 const variantStyles: Record<BadgeVariant, string> = {
   verified: "bg-success/10 text-success border-success/20",
-  review: "bg-warning/10 text-warning border-warning/20",
+  review: "bg-terracotta-soft text-terracotta border-terracotta-border",
   processing: "bg-info/10 text-info border-info/20",
   failed: "bg-error/10 text-error border-error/20",
   excluded: "bg-text-secondary/10 text-text-secondary border-text-secondary/20",

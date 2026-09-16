@@ -18,7 +18,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const portfolioId = searchParams.get("portfolioId");
-    const timeFilter = searchParams.get("timeFilter") || "all";
+    const allowedFilters = new Set(["1w", "1m", "3m", "6m", "1y", "all"]);
+    const timeFilter = allowedFilters.has(searchParams.get("timeFilter") || "all")
+      ? (searchParams.get("timeFilter") as string)
+      : "all";
 
     const admin = createAdminClient();
 
@@ -27,6 +30,9 @@ export async function GET(request: NextRequest) {
     if (timeFilter !== "all") {
       const now = new Date();
       switch (timeFilter) {
+        case "1w":
+          dateFilter = new Date(now.setDate(now.getDate() - 7)).toISOString();
+          break;
         case "1m":
           dateFilter = new Date(now.setMonth(now.getMonth() - 1)).toISOString();
           break;

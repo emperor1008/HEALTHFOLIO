@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 
@@ -42,9 +43,11 @@ const SAFETY_NOTICE =
   "Healthfolio organizes and explains your records. It does not provide diagnosis or replace a qualified healthcare professional.";
 
 export default function AskPage() {
+  const reduceMotion = useReducedMotion();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [activityLabel, setActivityLabel] = useState<string>("Thinking…");
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -75,15 +78,16 @@ export default function AskPage() {
       setLoading(true);
 
       // Create activity label based on question content
-      let activityLabel = "Thinking…";
+      let label = "Thinking…";
       const lowerQ = q.toLowerCase();
       if (lowerQ.includes("metform") || lowerQ.includes("medicine") || lowerQ.includes("tablet") || lowerQ.includes("drug")) {
-        activityLabel = "Matching the medicine name…";
+        label = "Matching the medicine name…";
       } else if (lowerQ.includes("hba1c") || lowerQ.includes("test") || lowerQ.includes("result") || lowerQ.includes("cholesterol")) {
-        activityLabel = "Checking your verified records…";
+        label = "Checking your verified records…";
       } else if (lowerQ.includes("upload") || lowerQ.includes("how")) {
-        activityLabel = "Looking up Healthfolio features…";
+        label = "Looking up Healthfolio features…";
       }
+      setActivityLabel(label);
 
       const userMsg: ChatMessage = {
         id: `user-${requestId}`,
@@ -140,6 +144,7 @@ export default function AskPage() {
         setError("Could not reach the AI service. Please try again.");
       } finally {
         setLoading(false);
+        setActivityLabel("Thinking…");
         inflightRef.current = null;
         abortRef.current = null;
       }
@@ -254,26 +259,33 @@ export default function AskPage() {
           <div
             key={msg.id}
             className={`mb-4 flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-card px-4 py-3 ${
+          >          <div className={`max-w-[85%] rounded-card px-4 py-3 ${
                 msg.role === "user"
                   ? "bg-primary text-white"
+                  : msg.answerType === "emergency"
+                  ? "border border-error/40 bg-error/5"
                   : "border border-border bg-surface"
-              }`}
-            >
+              }`}>
               {/* Answer type label */}
               {msg.role === "assistant" && msg.answerType && (
-                <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+                <p
+                  className={`mb-2 text-[10px] font-medium uppercase tracking-wide ${
+                    msg.answerType === "emergency"
+                      ? "text-error"
+                      : msg.answerType === "safety_boundary"
+                      ? "text-terracotta"
+                      : "text-text-secondary"
+                  }`}
+                >
                   {msg.answerType === "product_help" && "About Healthfolio"}
                   {msg.answerType === "personal_record" &&
-                    "Based on your records"}
+                    "From your verified records"}
                   {msg.answerType === "general_education" &&
                     "General health information"}
                   {msg.answerType === "clarification" && "Quick question"}
                   {msg.answerType === "safety_boundary" && "Safety notice"}
-                  {msg.answerType === "emergency" && "⚠️ Emergency notice"}
-                  {msg.answerType === "error" && "Error"}
+                  {msg.answerType === "emergency" && "Emergency — act now"}
+                  {msg.answerType === "error" && "Notice"}
                 </p>
               )}
 
@@ -412,7 +424,7 @@ export default function AskPage() {
                               rel="noopener noreferrer"
                               className="ml-2 text-primary underline"
                             >
-                              Visit
+                              View source
                             </a>
                           )}
                         </>
@@ -440,9 +452,25 @@ export default function AskPage() {
 
         {loading && (
           <div className="mb-4 flex justify-start">
-            <div className="flex items-center gap-2 rounded-card border border-border bg-surface px-4 py-3">
-              <Spinner size="sm" />
-              <span className="text-sm text-text-secondary">Thinking…</span>
+            <div className="flex items-center gap-2.5 rounded-card border border-border bg-surface px-4 py-3">
+              <span className="flex items-end gap-1" aria-hidden="true">
+                {[0, 1, 2].map((i) => (
+                  <motion.span
+                    key={i}
+                    className="h-1.5 w-1.5 rounded-full bg-primary/70"
+                    animate={{ opacity: [0.25, 1, 0.25], y: [0, -2, 0] }}
+                    transition={{
+                      duration: 0.9,
+                      repeat: Infinity,
+                      delay: i * 0.15,
+                      ease: "easeInOut",
+                    }}
+                  />
+                ))}
+              </span>
+              <span className="text-sm text-text-secondary">
+                {activityLabel || "Thinking…"}
+              </span>
             </div>
           </div>
         )}

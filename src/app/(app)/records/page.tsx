@@ -7,21 +7,21 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Spinner } from "@/components/ui/Spinner";
+import { SkeletonList } from "@/components/ui/Skeletons";
+import { PageTransition, CardHover } from "@/components/ui/PageTransition";
 import { Modal } from "@/components/ui/Modal";
 import { AddRecordButton } from "@/components/capture/AddRecordButton";
 import {
   CATEGORY_LABELS,
   CATEGORY_ICONS,
   type DocumentCategory,
-  getProcessingStatusLabel,
 } from "@/lib/documents/taxonomy";
 
 interface DocumentRecord {
   id: string;
   original_name: string;
   mime_type: string;
-  file_size_bytes: number;
+  size_bytes: number;
   category: string;
   category_confidence: number | null;
   classification_status: string;
@@ -47,9 +47,56 @@ interface CategoryGroup {
 type SortBy = "document_date" | "created_at";
 type ViewMode = "categories" | "timeline";
 
+/** User-facing status: calm, honest, no internal codes. */
+function getStatusChip(doc: DocumentRecord): {
+  label: string;
+  variant: "verified" | "review" | "processing" | "failed";
+} {
+  if (doc.requires_review || doc.processing_status === "review_required") {
+    return { label: "Review needed", variant: "review" };
+  }
+  switch (doc.processing_status) {
+    case "completed":
+      return { label: "Organized", variant: "verified" };
+    case "failed":
+      return { label: "Needs attention", variant: "failed" };
+    case "uploaded":
+      return { label: "Queued", variant: "processing" };
+    case "extracting":
+      return { label: "Reading document", variant: "processing" };
+    case "classifying":
+      return { label: "Identifying type", variant: "processing" };
+    case "organizing":
+      return { label: "Organizing", variant: "processing" };
+    default:
+      return { label: "Processing", variant: "processing" };
+  }
+}
+
+function formatDocumentDate(dateStr: string | null): string {
+  if (!dateStr) return "Date not found";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function getConfidenceLabel(confidence: number | null): string {
+  if (confidence === null) return "Not classified yet";
+  if (confidence >= 0.9) return "Clear match";
+  if (confidence >= 0.7) return "Good match";
+  return "Uncertain — please verify";
+}
+
 export default function RecordsPage() {
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -61,19 +108,28 @@ export default function RecordsPage() {
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLoadFailed(true);
+        setLoading(false);
+        return;
+      }
 
       let query = supabase
         .from("documents")
-        .select(`
-          id, original_name, mime_type, file_size_bytes,
+        .select(
+          `
+          id, original_name, mime_type, size_bytes,
           category, category_confidence, classification_status, processing_status,
           document_date, title, doctor_name, facility_name, summary,
           requires_review, created_at
-        `)
+        `
+        )
         .eq("user_id", user.id)
         .is("invalidated_at", null);
 
@@ -88,9 +144,15 @@ export default function RecordsPage() {
         }
       }
 
-      const { data: docs } = await query.order(sortBy, { ascending: false }).limit(100);
+      const { data: docs, error } = await query
+        .order(sortBy, { ascending: false })
+        .limit(100);
 
-      setDocuments(docs || []);
+      if (error) {
+        setLoadFailed(true);
+      } else {
+        setDocuments(docs || []);
+      }
 
       // Get portfolio ID for AddRecordButton
       const { data: portfolios } = await supabase
@@ -102,7 +164,7 @@ export default function RecordsPage() {
         setPortfolioId(portfolios[0].id);
       }
     } catch {
-      // Error handled by UI state
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -167,199 +229,234 @@ export default function RecordsPage() {
 
   const reviewCount = documents.filter((d) => d.requires_review).length;
 
-  function formatDate(dateStr: string | null): string {
-    if (!dateStr) return "Date not found";
-    try {
-      return new Date(dateStr).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return dateStr;
-    }
-  }
-
-  function getConfidenceLabel(confidence: number | null): string {
-    if (confidence === null) return "Not classified";
-    if (confidence >= 0.9) return "High confidence";
-    if (confidence >= 0.7) return "Moderate confidence";
-    return "Low confidence";
-  }
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Spinner size="lg" />
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <div className="skeleton h-8 w-56" />
+          <div className="skeleton h-4 w-72" />
+        </div>
+        <SkeletonList count={4} />
+      </div>
+    );
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="heading-luxury text-2xl md:text-3xl">Records</h1>
+          <p className="mt-1 text-text-secondary">
+            Your organized medical documents
+          </p>
+        </div>
+        <EmptyState
+          icon="🌤"
+          title="We couldn't load your records right now"
+          description="This is usually a connection issue. Your documents are safe."
+          action={{ label: "Try again", onClick: loadDocuments }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary md:text-3xl">
-            Medical Records
-          </h1>
-          <p className="mt-1 text-text-secondary">
-            Organized view of your uploaded documents
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/records/reports">
-            <Button variant="secondary">Test Reports</Button>
-          </Link>
-          {portfolioId && (
-            <AddRecordButton
-              portfolioId={portfolioId}
-              onComplete={() => loadDocuments()}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Review required banner */}
-      {reviewCount > 0 && (
-        <Card padding="md" className="border-warning/20 bg-warning/5">
-          <div className="flex items-center gap-3">
-            <span className="text-warning">⚠️</span>
-            <div>
-              <p className="text-sm font-medium text-warning">
-                {reviewCount} document{reviewCount !== 1 ? "s" : ""} need your review
-              </p>
-              <p className="text-xs text-text-secondary">
-                Review AI classifications to confirm or correct categories
-              </p>
-            </div>
+    <PageTransition>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="heading-luxury text-2xl md:text-3xl">Records</h1>
+            <p className="mt-1 text-text-secondary">
+              Organized view of your uploaded documents
+            </p>
           </div>
-        </Card>
-      )}
-
-      {/* Search and filters */}
-      <div className="flex flex-wrap gap-3">
-        <input
-          type="text"
-          placeholder="Search documents..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1 min-w-[200px] rounded-lg border border-border bg-surface px-4 py-2 text-sm text-text-primary"
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-        >
-          <option value="all">All categories</option>
-          {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-            <option key={key} value={key}>{label}</option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
-        >
-          <option value="all">All statuses</option>
-          <option value="review">Needs review</option>
-          <option value="completed">Processed</option>
-          <option value="failed">Failed</option>
-        </select>
-        <div className="flex rounded-lg border border-border">
-          <button
-            onClick={() => setViewMode("categories")}
-            className={`px-3 py-2 text-sm ${viewMode === "categories" ? "bg-primary text-white" : "text-text-secondary"}`}
-          >
-            Categories
-          </button>
-          <button
-            onClick={() => setViewMode("timeline")}
-            className={`px-3 py-2 text-sm ${viewMode === "timeline" ? "bg-primary text-white" : "text-text-secondary"}`}
-          >
-            Timeline
-          </button>
+          <div className="flex gap-2">
+            {portfolioId && (
+              <AddRecordButton
+                portfolioId={portfolioId}
+                onComplete={() => loadDocuments()}
+              />
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Empty state */}
-      {filteredDocs.length === 0 && (
-        <EmptyState
-          icon="📋"
-          title={searchQuery ? "No matching documents" : "No documents yet"}
-          description={
-            searchQuery
-              ? "Try adjusting your search or filters"
-              : "Upload your first medical document to get started"
-          }
-          action={
-            !searchQuery
-              ? { label: "Add record", onClick: () => { window.location.href = "/prepare"; } }
-              : undefined
-          }
-        />
-      )}
-
-      {/* Category view */}
-      {viewMode === "categories" && categoryGroups.length > 0 && (
-        <div className="space-y-6">
-          {categoryGroups.map((group) => (
-            <div key={group.category}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">{group.icon}</span>
-                <h2 className="text-lg font-semibold text-text-primary">{group.label}</h2>
-                <Badge variant="processing">{group.count}</Badge>
+        {/* Review required banner */}
+        {reviewCount > 0 && (
+          <Card padding="md" className="border-terracotta-border bg-terracotta-soft">
+            <div className="flex items-center gap-3">
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-terracotta/15 text-terracotta"
+                aria-hidden="true"
+              >
+                !
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-text-primary">
+                  {reviewCount} document{reviewCount !== 1 ? "s" : ""} need
+                  your review
+                </p>
+                <p className="text-xs text-text-secondary">
+                  Uncertain details are marked so you can confirm or correct
+                  them.
+                </p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.documents.map((doc) => (
-                  <DocumentCard
-                    key={doc.id}
-                    doc={doc}
-                    onSelect={() => setSelectedDoc(doc)}
-                    formatDate={formatDate}
-                    getConfidenceLabel={getConfidenceLabel}
-                  />
-                ))}
-              </div>
+              <Link href="/review">
+                <Button variant="secondary" size="sm">
+                  Review
+                </Button>
+              </Link>
             </div>
-          ))}
-        </div>
-      )}
+          </Card>
+        )}
 
-      {/* Timeline view */}
-      {viewMode === "timeline" && filteredDocs.length > 0 && (
-        <div className="space-y-3">
-          {filteredDocs.map((doc) => (
-            <DocumentCard
-              key={doc.id}
-              doc={doc}
-              onSelect={() => setSelectedDoc(doc)}
-              formatDate={formatDate}
-              getConfidenceLabel={getConfidenceLabel}
-              fullWidth
-            />
-          ))}
+        {/* Search and filters */}
+        <div className="flex flex-wrap gap-3">
+          <input
+            type="text"
+            placeholder="Search documents…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search documents"
+            className="min-h-touch min-w-[200px] flex-1 rounded-input border border-border bg-surface px-4 py-2 text-sm text-text-primary placeholder:text-text-secondary/60 focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          />
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            aria-label="Filter by category"
+            className="min-h-touch rounded-input border border-border bg-surface px-3 py-2 text-sm text-text-primary focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <option value="all">All categories</option>
+            {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter by status"
+            className="min-h-touch rounded-input border border-border bg-surface px-3 py-2 text-sm text-text-primary focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <option value="all">All statuses</option>
+            <option value="review">Review needed</option>
+            <option value="completed">Organized</option>
+            <option value="failed">Needs attention</option>
+          </select>
+          <div className="flex overflow-hidden rounded-input border border-border" role="group" aria-label="View mode">
+            <button
+              onClick={() => setViewMode("categories")}
+              aria-pressed={viewMode === "categories"}
+              className={`min-h-touch px-4 text-sm transition-colors ${
+                viewMode === "categories"
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:bg-canvas"
+              }`}
+            >
+              Categories
+            </button>
+            <button
+              onClick={() => setViewMode("timeline")}
+              aria-pressed={viewMode === "timeline"}
+              className={`min-h-touch px-4 text-sm transition-colors ${
+                viewMode === "timeline"
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:bg-canvas"
+              }`}
+            >
+              Timeline
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Document detail modal */}
-      <Modal
-        isOpen={!!selectedDoc}
-        onClose={() => setSelectedDoc(null)}
-        title={selectedDoc?.title || selectedDoc?.original_name || "Document"}
-        size="lg"
-      >
-        {selectedDoc && (
-          <DocumentDetail
-            doc={selectedDoc}
-            onClassify={() => handleClassify(selectedDoc)}
-            classifying={classifying}
-            formatDate={formatDate}
-            getConfidenceLabel={getConfidenceLabel}
+        {/* Empty state */}
+        {filteredDocs.length === 0 && (
+          <EmptyState
+            icon="📋"
+            title={
+              searchQuery || categoryFilter !== "all" || statusFilter !== "all"
+                ? "No matching records"
+                : "No records yet"
+            }
+            description={
+              searchQuery || categoryFilter !== "all" || statusFilter !== "all"
+                ? "Try adjusting your search or filters."
+                : "Add your first medical record — a photo or a file works."
+            }
+            action={
+              !searchQuery && portfolioId
+                ? {
+                    label: "Add record",
+                    onClick: () => {
+                      const el = document.querySelector<HTMLButtonElement>(
+                        "[data-add-record-trigger]"
+                      );
+                      el?.click();
+                    },
+                  }
+                : undefined
+            }
           />
         )}
-      </Modal>
-    </div>
+
+        {/* Category view */}
+        {viewMode === "categories" && categoryGroups.length > 0 && (
+          <div className="space-y-6">
+            {categoryGroups.map((group) => (
+              <div key={group.category}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span aria-hidden="true">{group.icon}</span>
+                  <h2 className="text-lg font-semibold text-text-primary">
+                    {group.label}
+                  </h2>
+                  <Badge variant="default">{group.count}</Badge>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.documents.map((doc) => (
+                    <DocumentCard
+                      key={doc.id}
+                      doc={doc}
+                      onSelect={() => setSelectedDoc(doc)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Timeline view */}
+        {viewMode === "timeline" && filteredDocs.length > 0 && (
+          <div className="space-y-3">
+            {filteredDocs.map((doc) => (
+              <DocumentCard
+                key={doc.id}
+                doc={doc}
+                onSelect={() => setSelectedDoc(doc)}
+                fullWidth
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Document detail modal */}
+        <Modal
+          isOpen={!!selectedDoc}
+          onClose={() => setSelectedDoc(null)}
+          title={selectedDoc?.title || selectedDoc?.original_name || "Document"}
+          size="lg"
+        >
+          {selectedDoc && (
+            <DocumentDetail
+              doc={selectedDoc}
+              onClassify={() => handleClassify(selectedDoc)}
+              classifying={classifying}
+            />
+          )}
+        </Modal>
+      </div>
+    </PageTransition>
   );
 }
 
@@ -368,51 +465,61 @@ export default function RecordsPage() {
 function DocumentCard({
   doc,
   onSelect,
-  formatDate,
-  getConfidenceLabel,
   fullWidth,
 }: {
   doc: DocumentRecord;
   onSelect: () => void;
-  formatDate: (d: string | null) => string;
-  getConfidenceLabel: (c: number | null) => string;
   fullWidth?: boolean;
 }) {
-  const categoryLabel = CATEGORY_LABELS[doc.category as DocumentCategory] || doc.category;
-  const categoryIcon = CATEGORY_ICONS[doc.category as DocumentCategory] || "📎";
+  const categoryLabel =
+    CATEGORY_LABELS[doc.category as DocumentCategory] || doc.category;
+  const categoryIcon =
+    CATEGORY_ICONS[doc.category as DocumentCategory] || "📎";
+  const status = getStatusChip(doc);
 
   return (
-    <Card
-      padding="md"
-      className={`cursor-pointer transition-colors hover:border-primary/30 ${fullWidth ? "" : ""}`}
-      onClick={onSelect}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span>{categoryIcon}</span>
-            <span className="text-xs font-medium text-text-secondary">{categoryLabel}</span>
-            {doc.requires_review && (
-              <Badge variant="review">Review needed</Badge>
-            )}
+    <CardHover className={fullWidth ? "" : "h-full"}>
+      <Card
+        padding="md"
+        role="button"
+        tabIndex={0}
+        aria-label={`${categoryLabel}: ${doc.title || doc.original_name}`}
+        onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect();
+          }
+        }}
+        className={`h-full cursor-pointer transition-colors hover:border-primary/30 ${
+          fullWidth ? "" : ""
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true">{categoryIcon}</span>
+              <span className="text-xs font-medium text-text-secondary">
+                {categoryLabel}
+              </span>
+              {doc.requires_review && (
+                <Badge variant="review">Review needed</Badge>
+              )}
+            </div>
+            <p className="mt-1 truncate font-medium text-text-primary">
+              {doc.title || doc.original_name}
+            </p>
+            <p className="mt-1 text-xs text-text-secondary">
+              {doc.document_date
+                ? formatDocumentDate(doc.document_date)
+                : "Date not found"}
+              {doc.facility_name && ` · ${doc.facility_name}`}
+            </p>
           </div>
-          <p className="mt-1 font-medium text-text-primary truncate">
-            {doc.title || doc.original_name}
-          </p>
-          <p className="mt-1 text-xs text-text-secondary">
-            {doc.document_date ? formatDate(doc.document_date) : "Date not found"}
-            {doc.facility_name && ` · ${doc.facility_name}`}
-          </p>
+          <Badge variant={status.variant}>{status.label}</Badge>
         </div>
-        <Badge variant={
-          doc.processing_status === "completed" ? "verified" :
-          doc.processing_status === "failed" ? "failed" :
-          "processing"
-        }>
-          {getProcessingStatusLabel(doc.processing_status as any)}
-        </Badge>
-      </div>
-    </Card>
+      </Card>
+    </CardHover>
   );
 }
 
@@ -422,77 +529,103 @@ function DocumentDetail({
   doc,
   onClassify,
   classifying,
-  formatDate,
-  getConfidenceLabel,
 }: {
   doc: DocumentRecord;
   onClassify: () => void;
   classifying: boolean;
-  formatDate: (d: string | null) => string;
-  getConfidenceLabel: (c: number | null) => string;
 }) {
-  const categoryLabel = CATEGORY_LABELS[doc.category as DocumentCategory] || doc.category;
+  const categoryLabel =
+    CATEGORY_LABELS[doc.category as DocumentCategory] || doc.category;
+  const status = getStatusChip(doc);
 
   return (
     <div className="space-y-4">
+      {/* Status */}
+      <div className="flex items-center justify-between rounded-card border border-border bg-canvas px-4 py-3">
+        <div>
+          <p className="text-xs font-medium uppercase text-text-secondary">
+            Status
+          </p>
+          <p className="mt-0.5 text-sm text-text-primary">{status.label}</p>
+        </div>
+        <Badge variant={status.variant}>{status.label}</Badge>
+      </div>
+
       {/* Classification info */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <p className="text-xs font-medium uppercase text-text-secondary">Category</p>
+          <p className="text-xs font-medium uppercase text-text-secondary">
+            Category
+          </p>
           <p className="mt-1 text-sm text-text-primary">{categoryLabel}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase text-text-secondary">Confidence</p>
+          <p className="text-xs font-medium uppercase text-text-secondary">
+            Confidence
+          </p>
           <p className="mt-1 text-sm text-text-primary">
             {getConfidenceLabel(doc.category_confidence)}
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase text-text-secondary">Document date</p>
+          <p className="text-xs font-medium uppercase text-text-secondary">
+            Document date
+          </p>
           <p className="mt-1 text-sm text-text-primary">
-            {doc.document_date ? formatDate(doc.document_date) : "Date not found"}
+            {doc.document_date
+              ? formatDocumentDate(doc.document_date)
+              : "Date not found"}
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase text-text-secondary">Upload date</p>
-          <p className="mt-1 text-sm text-text-primary">{formatDate(doc.created_at)}</p>
+          <p className="text-xs font-medium uppercase text-text-secondary">
+            Added on
+          </p>
+          <p className="mt-1 text-sm text-text-primary">
+            {formatDocumentDate(doc.created_at)}
+          </p>
         </div>
       </div>
 
       {/* Metadata */}
       {doc.doctor_name && (
         <div>
-          <p className="text-xs font-medium uppercase text-text-secondary">Doctor</p>
+          <p className="text-xs font-medium uppercase text-text-secondary">
+            Doctor
+          </p>
           <p className="mt-1 text-sm text-text-primary">{doc.doctor_name}</p>
         </div>
       )}
       {doc.facility_name && (
         <div>
-          <p className="text-xs font-medium uppercase text-text-secondary">Facility</p>
+          <p className="text-xs font-medium uppercase text-text-secondary">
+            Facility
+          </p>
           <p className="mt-1 text-sm text-text-primary">{doc.facility_name}</p>
         </div>
       )}
       {doc.summary && (
         <div>
-          <p className="text-xs font-medium uppercase text-text-secondary">Summary</p>
+          <p className="text-xs font-medium uppercase text-text-secondary">
+            Summary
+          </p>
           <p className="mt-1 text-sm text-text-primary">{doc.summary}</p>
         </div>
       )}
 
       {/* Actions */}
       <div className="flex gap-3 border-t border-border pt-4">
-        {(doc.classification_status === "pending" || doc.processing_status === "failed") && (
-          <Button
-            size="sm"
-            loading={classifying}
-            onClick={onClassify}
-          >
-            Classify with AI
+        {(doc.classification_status === "pending" ||
+          doc.processing_status === "failed") && (
+          <Button size="sm" loading={classifying} onClick={onClassify}>
+            Try organizing again
           </Button>
         )}
         {doc.requires_review && (
-          <Link href={`/review`}>
-            <Button variant="secondary" size="sm">Review</Button>
+          <Link href="/review">
+            <Button variant="secondary" size="sm">
+              Review details
+            </Button>
           </Link>
         )}
       </div>

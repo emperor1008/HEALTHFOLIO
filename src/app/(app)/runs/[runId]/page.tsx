@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
+import { formatActivity } from "@/lib/agent/activity-format";
 
 interface AgentStep {
   id: string;
@@ -46,6 +47,7 @@ export default function RunDetailPage() {
   const [autoStepping, setAutoStepping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAgentDetails, setShowAgentDetails] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
   const autoStepRef = useRef<boolean>(false);
   const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -234,6 +236,9 @@ export default function RunDetailPage() {
     (s) => s.tool_status === "succeeded" && s.public_summary.includes("Retrying")
   );
 
+  // User-facing activity narrative — derived from real run data only
+  const activity = formatActivity(run, steps);
+
   return (
     <div className="space-y-8">
       <div>
@@ -334,6 +339,76 @@ export default function RunDetailPage() {
           </div>
         </Card>
       )}
+
+      {/* Healthfolio Activity — real run data, collapsed by default */}
+      <div>
+        <button
+          onClick={() => setShowActivity(!showActivity)}
+          aria-expanded={showActivity}
+          className="flex items-center gap-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            className={`transition-transform ${showActivity ? "rotate-90" : ""}`}
+            aria-hidden="true"
+          >
+            <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Healthfolio Activity
+        </button>
+
+        {showActivity && (
+          <Card padding="lg" className="animate-rise mt-3">
+            <dl className="space-y-2.5 text-sm">
+              {activity.goal && (
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">Goal</dt>
+                  <dd className="text-text-primary">{activity.goal}</dd>
+                </div>
+              )}
+              {activity.observed && (
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">Observed</dt>
+                  <dd className="text-text-primary">{activity.observed}</dd>
+                </div>
+              )}
+              {activity.decision && (
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">Decision</dt>
+                  <dd className="text-text-primary">{activity.decision}</dd>
+                </div>
+              )}
+              {activity.action && (
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">Action</dt>
+                  <dd className="text-text-primary">{activity.action}</dd>
+                </div>
+              )}
+              {activity.evaluation && (
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">Evaluation</dt>
+                  <dd className="text-text-primary">{activity.evaluation}</dd>
+                </div>
+              )}
+              {activity.adaptation && (
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">Adaptation</dt>
+                  <dd className="text-text-primary">{activity.adaptation}</dd>
+                </div>
+              )}
+            </dl>
+
+            {steps.length === 0 && (
+              <p className="mt-3 text-sm text-text-secondary">
+                Detailed activity will appear as processing begins.
+              </p>
+            )}
+          </Card>
+        )}
+      </div>
 
       {/* How Healthfolio worked — collapsed by default */}
       <div>

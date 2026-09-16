@@ -28,7 +28,7 @@ export async function GET(
     const { data: doc, error: docError } = await admin
       .from("documents")
       .select(`
-        id, original_name, original_filename, mime_type, file_size_bytes, file_hash,
+        id, original_name, original_filename, mime_type, size_bytes, file_hash,
         category, category_confidence, classification_status, processing_status,
         document_date, document_date_precision, document_date_source,
         title, issuer_name, patient_name, doctor_name, facility_name,

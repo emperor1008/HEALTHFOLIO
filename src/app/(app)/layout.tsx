@@ -17,7 +17,7 @@ export default function AppLayout({
         <Sidebar />
         <main
           id="main-content"
-          className="flex-1 overflow-auto pb-20 md:pb-0"
+          className="flex-1 overflow-auto pb-24 md:pb-0"
         >
           <div className="mx-auto max-w-[1200px] p-4 md:p-8">
             {children}
