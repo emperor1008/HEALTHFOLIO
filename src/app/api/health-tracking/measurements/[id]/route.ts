@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/auth-helpers";
 import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
+import {
+  runSignalMonitorForMeasurement,
+  archiveSignalsForInvalidatedMeasurement,
+} from "@/lib/signals/service";
 
 export async function GET(
   request: NextRequest,
@@ -164,6 +168,20 @@ export async function PATCH(
       return NextResponse.json(
         formatErrorResponse(createError(errorCode, "Review could not be completed"), requestId),
         { status }
+      );
+    }
+
+    // Health Signal Monitor: deterministic, no LLM. Runs after the review
+    // transaction committed; never throws, so verification stays valid even
+    // if signal generation fails.
+    if (decision === "verified" || decision === "corrected") {
+      await runSignalMonitorForMeasurement(admin, user.id, measurementId);
+    } else if (decision === "rejected") {
+      await archiveSignalsForInvalidatedMeasurement(
+        admin,
+        user.id,
+        measurementId,
+        "measurement_rejected"
       );
     }
 

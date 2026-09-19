@@ -16,7 +16,7 @@
  * It does NOT print any secret values.
  */
 
-const { execSync } = require("child_process");
+const { execSync, execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -60,6 +60,33 @@ function supabaseRequest(url, anonKey, path) {
   }
 }
 
+function supabasePostRequest(url, anonKey, path, jsonBody) {
+  try {
+    // execFileSync bypasses the shell (cmd.exe on Windows would otherwise
+    // mangle the quoted JSON body) — arguments go straight to curl.
+    const result = execFileSync(
+      "curl",
+      [
+        "-s",
+        "-w", "\n%{http_code}",
+        "-X", "POST",
+        "-H", `apikey: ${anonKey}`,
+        "-H", `Authorization: Bearer ${anonKey}`,
+        "-H", "Content-Type: application/json",
+        "-d", jsonBody,
+        `${url}${path}`,
+      ],
+      { encoding: "utf-8", timeout: 15000 }
+    );
+    const lines = result.trim().split("\n");
+    const statusCode = parseInt(lines[lines.length - 1], 10);
+    const body = lines.slice(0, -1).join("\n");
+    return { statusCode, body };
+  } catch (e) {
+    return { statusCode: 0, body: e.message };
+  }
+}
+
 function main() {
   const env = loadEnv();
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -74,6 +101,29 @@ function main() {
 
   // Required tables
   const requiredTables = [
+    "care_requests",
+    "triage_assessments",
+    "facilities",
+    "facility_memberships",
+    "clinician_profiles",
+    "clinician_availability",
+    "care_request_assignments",
+    "care_appointments",
+    "appointment_status_events",
+    "consultation_messages",
+    "document_share_consents",
+    "consultation_audit_events",
+    "clinician_document_access",
+    "clinician_document_access_audit",
+    "pharmacies",
+    "pharmacy_memberships",
+    "pharmacy_stock_events",
+    "pharmacy_availability_requests",
+    "pharmacy_availability_responses",
+    "pharmacy_audit_events",
+    "reliability_metrics",
+    "region_config",
+    "idempotency_keys",
     "portfolios",
     "consents",
     "documents",
@@ -85,7 +135,7 @@ function main() {
     "medical_measurements",
     "laboratory_reports",
     "prescription_items",
-    "medicine_links",
+    "user_medicine_links",
     "appointments",
     "briefs",
     "reminders",
@@ -97,16 +147,27 @@ function main() {
     "notification_subscriptions",
     "notification_deliveries",
     "audit_events",
+    "health_signals",
   ];
 
   console.log("📋 Checking required tables...");
 
   for (const table of requiredTables) {
-    const { statusCode } = supabaseRequest(url, anonKey, `/rest/v1/${table}?select=id&limit=0`);
-    if (statusCode === 200 || statusCode === 404) {
-      // 200 = table exists, 404 = table exists but no rows (RLS blocks empty select)
-      // A 404 from PostgREST usually means the table exists but returned empty
-      // A real "table doesn't exist" would return a different error
+    // Probe with `count=exact` on an empty select instead of `select=id`:
+    // several tables (e.g. idempotency_keys, appointment_status_events) have
+    // no `id` column, which returns 400 and looks like a failure.
+    const { statusCode, body } = supabaseRequest(
+      url,
+      anonKey,
+      `/rest/v1/${table}?select=*&limit=0`
+    );
+    // PGRST205 in the body means "relation does not exist" even though the
+    // HTTP status is 404 — treat that as a missing table, not an empty one.
+    if (statusCode === 404 && body && body.includes && body.includes("PGRST205")) {
+      process.stdout.write(`  ❌ ${table} (missing — run its migration)\n`);
+      failures++;
+    } else if (statusCode === 200 || statusCode === 404) {
+      // 200 = table exists, 404 = table exists but RLS blocks the empty select
       process.stdout.write(`  ✅ ${table}\n`);
     } else if (statusCode === 406) {
       // 406 = Not Acceptable, often from .single() on empty — table exists
@@ -177,16 +238,38 @@ function main() {
 
   // Check RPC functions
   console.log("\n🔧 Checking RPC functions...");
-  const requiredFunctions = ["calculate_health_trend", "review_measurement"];
-  for (const fn of requiredFunctions) {
-    // RPC functions are checked by attempting to call them with minimal args
-    // They should exist even if the call fails due to missing arguments
-    const { statusCode } = supabaseRequest(url, anonKey, `/rest/v1/rpc/${fn}`);
-    // 400 = function exists but bad args, 404 = function doesn't exist
-    if (statusCode === 400 || statusCode === 200 || statusCode === 404) {
-      process.stdout.write(`  ✅ ${fn} (exists)\n`);
+  // RPC functions are checked by calling them with their real (all-default)
+  // signatures — a missing function returns PGRST202; an existing one answers
+  // normally (e.g. SESSION_REQUIRED for an unauthenticated probe).
+  // calculate_health_trend was dropped from this list: it is not defined in
+  // any migration and is not referenced anywhere in the app.
+  const rpcProbes = [
+    {
+      name: "review_measurement",
+      body: JSON.stringify({
+        p_measurement_id: "00000000-0000-0000-0000-000000000000",
+        p_decision: "verified",
+      }),
+    },
+    {
+      name: "review_health_signal",
+      body: JSON.stringify({
+        p_signal_id: "00000000-0000-0000-0000-000000000000",
+        p_action: "acknowledge",
+      }),
+    },
+  ];
+  for (const fn of rpcProbes) {
+    const { statusCode, body } = supabasePostRequest(url, anonKey, `/rest/v1/rpc/${fn.name}`, fn.body);
+    if (statusCode === 404 && body && body.includes && body.includes("PGRST202")) {
+      process.stdout.write(`  ❌ ${fn.name} (missing — run its migration)\n`);
+      failures++;
+    } else if (statusCode >= 200 && statusCode < 500) {
+      // Any non-PGRST202 answer (including SESSION_REQUIRED / NOT_FOUND json)
+      // proves the function exists.
+      process.stdout.write(`  ✅ ${fn.name} (exists)\n`);
     } else {
-      process.stdout.write(`  ❌ ${fn} (HTTP ${statusCode})\n`);
+      process.stdout.write(`  ❌ ${fn.name} (HTTP ${statusCode})\n`);
       failures++;
     }
   }

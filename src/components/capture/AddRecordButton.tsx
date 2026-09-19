@@ -1,17 +1,36 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/Button";
 import { CaptureSourceSheet } from "./CaptureSourceSheet";
-import { CameraScanner } from "./CameraScanner";
-import { PageReview } from "./PageReview";
-import { UploadProgress } from "./UploadProgress";
-import { ProcessingProgress } from "./ProcessingProgress";
+
+// Heavy capture modules (camera getUserMedia, review canvas, upload progress)
+// are code-split so the dashboard's first paint does not load them.
+const CameraScanner = dynamic(() => import("./CameraScanner").then((m) => m.CameraScanner), {
+  ssr: false,
+  loading: () => null,
+});
+const PageReview = dynamic(() => import("./PageReview").then((m) => m.PageReview), {
+  ssr: false,
+  loading: () => null,
+});
+const UploadProgress = dynamic(() => import("./UploadProgress").then((m) => m.UploadProgress), {
+  ssr: false,
+  loading: () => null,
+});
+const ProcessingProgress = dynamic(() => import("./ProcessingProgress").then((m) => m.ProcessingProgress), {
+  ssr: false,
+  loading: () => null,
+});
+
 import type { CaptureState, CapturedPage, CaptureSource } from "@/lib/capture/types";
 import { isValidCaptureTransition } from "@/lib/capture/types";
 import { createUploadSession, uploadPage, finalizeUploadSession, cancelUploadSession } from "@/lib/capture/upload";
 import { revokeAllPreviewUrls } from "@/lib/capture/image-transform";
 import { VerifiedCheck } from "@/components/ui/VerifiedCheck";
+import { useSync } from "@/lib/offline/sync-provider";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface AddRecordButtonProps {
   portfolioId: string;
@@ -45,7 +64,10 @@ export function AddRecordButton({
   const [processingStageIndex, setProcessingStageIndex] = useState(0);
   const [uploadStarting, setUploadStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stagedOffline, setStagedOffline] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { online, stageUpload } = useSync();
+  const { t } = useLanguage();
 
   const transition = useCallback(
     (to: CaptureState) => {
@@ -60,6 +82,8 @@ export function AddRecordButton({
 
   const handleOpen = useCallback(() => {
     setError(null);
+    setStagedOffline(false);
+    setState("idle");
     setPages([]);
     setSource(null);
     setSessionId(null);
@@ -112,11 +136,40 @@ export function AddRecordButton({
     [transition]
   );
 
+  const stagePagesForLater = useCallback(async () => {
+    // Preserve every captured page locally (IndexedDB blob storage) so a
+    // dropped connection never loses a patient's record.
+    for (const page of pages) {
+      if (!page.blob || page.blob.size === 0) continue;
+      const isFile = typeof File !== "undefined" && page.blob instanceof File;
+      const fileName = isFile
+        ? (page.blob as File).name
+        : `record-${Date.now()}.${page.blob.type.includes("pdf") ? "pdf" : "jpg"}`;
+      const file = isFile
+        ? (page.blob as File)
+        : new File([page.blob], fileName, { type: page.blob.type || "image/jpeg" });
+      await stageUpload({ file, stagePurpose: "record" });
+    }
+    setStagedOffline(true);
+    transition("completed");
+  }, [pages, stageUpload, transition]);
+
   const handleUpload = useCallback(async () => {
     if (pages.length === 0) return;
     // Guard against double-clicks creating duplicate uploads/runs
     if (uploadStarting) return;
     setUploadStarting(true);
+
+    // Offline: stage everything locally instead of attempting an upload that
+    // cannot succeed. The queue delivers it automatically when online.
+    if (!online) {
+      try {
+        await stagePagesForLater();
+      } finally {
+        setUploadStarting(false);
+      }
+      return;
+    }
 
     try {
       transition("preparing_upload");
@@ -161,7 +214,13 @@ export function AddRecordButton({
       }
 
       if (hasError) {
-        transition("failed");
+        // Never lose a patient's record: convert the failed upload into a
+        // queued staged upload so it delivers automatically on reconnect.
+        try {
+          await stagePagesForLater();
+        } finally {
+          setUploadStarting(false);
+        }
         return;
       }
 
@@ -175,8 +234,12 @@ export function AddRecordButton({
       });
 
       if (!finalizeSuccess || finalizeError) {
-        setError(finalizeError || "Finalization failed");
-        transition("failed");
+        // Same protection at the finalize step: queue locally, deliver later.
+        try {
+          await stagePagesForLater();
+        } finally {
+          setUploadStarting(false);
+        }
         return;
       }
 
@@ -213,7 +276,7 @@ export function AddRecordButton({
     } finally {
       setUploadStarting(false);
     }
-  }, [pages, portfolioId, source, transition, onComplete, uploadStarting]);
+  }, [pages, portfolioId, source, transition, onComplete, uploadStarting, online, stagePagesForLater]);
 
   const handleCancel = useCallback(async () => {
     if (sessionId) {
@@ -325,18 +388,31 @@ export function AddRecordButton({
       )}
 
       {/* Error State */}
-      {state === "failed" && error && (
+      {state === "failed" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="rounded-card border border-border bg-surface p-6 shadow-xl max-w-sm w-full">
-            <h3 className="font-semibold text-text-primary">Upload failed</h3>
-            <p className="mt-2 text-sm text-text-secondary">{error}</p>
-            <div className="mt-4 flex justify-end gap-2">
+            <h3 className="font-semibold text-text-primary">
+              {stagedOffline ? t("savedOnDeviceHint") : "Upload failed"}
+            </h3>
+            <p className="mt-2 text-sm text-text-secondary">
+              {stagedOffline
+                ? t("savedOnDevice")
+                : t("uploadFailedSavedQueued")}
+            </p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
               <Button variant="secondary" size="sm" onClick={handleClose}>
-                Cancel
+                {t("cancel")}
               </Button>
-              <Button variant="primary" size="sm" onClick={handleOpen}>
-                Try again
-              </Button>
+              {!stagedOffline && (
+                <Button variant="primary" size="sm" onClick={() => void stagePagesForLater().then(handleClose)}>
+                  {t("saveForLater")}
+                </Button>
+              )}
+              {!stagedOffline && (
+                <Button variant="primary" size="sm" onClick={handleOpen}>
+                  Try again
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -347,12 +423,21 @@ export function AddRecordButton({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="animate-rise rounded-card border border-border bg-surface p-6 shadow-xl max-w-sm w-full text-center">
             <div className="flex justify-center">
-              <VerifiedCheck size={56} />
+              {stagedOffline ? (
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#EAF2ED] text-2xl" aria-hidden="true">
+                  📱
+                </div>
+              ) : (
+                <VerifiedCheck size={56} />
+              )}
             </div>
-            <h3 className="mt-3 font-semibold text-text-primary">Record added</h3>
+            <h3 className="mt-3 font-semibold text-text-primary">
+              {stagedOffline ? t("savedOnDeviceHint") : "Record added"}
+            </h3>
             <p className="mt-2 text-sm text-text-secondary">
-              Your document was uploaded. Healthfolio is organizing it —
-              you&apos;ll review anything uncertain next.
+              {stagedOffline
+                ? t("savedOnDevice")
+                : "Your document was uploaded. Healthfolio is organizing it — you'll review anything uncertain next."}
             </p>
             <Button
               variant="primary"

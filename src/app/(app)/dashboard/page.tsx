@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
@@ -19,6 +20,10 @@ import {
   SkeletonLine,
 } from "@/components/ui/Skeletons";import { PageTransition } from "@/components/ui/PageTransition";
 import { AddRecordButton } from "@/components/capture/AddRecordButton";
+import { HealthSignalsSection } from "@/components/signals/HealthSignalsSection";
+import { SyncStatus } from "@/components/offline/SyncStatus";
+import { FirstUseLanguageChooser } from "@/components/offline/FirstUseLanguageChooser";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface Overview {
   documents: Array<{
@@ -76,10 +81,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const healthSpace = useHealthSpace();
+  const { t } = useLanguage();
 
   const [pageState, setPageState] = useState<PageState>({ kind: "loading" });
   const [creating, setCreating] = useState(false);
   const [creatingAndUploading, setCreatingAndUploading] = useState(false);
+  const [evidenceFor, setEvidenceFor] = useState<{ documentId: string; pageNumber: number } | null>(null);
 
   const loadOverview = useCallback(async (portfolio: Portfolio) => {
     const overview = await fetchHealthOverview(portfolio.id);
@@ -328,11 +335,17 @@ export default function DashboardPage() {
   return (
     <PageTransition>
       <div className="space-y-8">
+        {/* Connection + queue status */}
+        <SyncStatus />
+
+        {/* First-use language choice (shown once per device) */}
+        <FirstUseLanguageChooser />
+
         {/* Welcome */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-text-primary md:text-3xl">
-              Welcome to your health space
+              {t("welcome")}
             </h1>
             <p className="mt-2 max-w-lg text-text-secondary">
               {overview.documents.length === 0
@@ -343,10 +356,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Primary capture CTA */}
-        <Card
-          padding="lg"
-          className="border-sage-border bg-sage-surface"
-        >
+        <Card padding="lg" className="border-sage-border bg-sage-surface">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-text-primary">
@@ -358,11 +368,26 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <AddRecordButton portfolioId={portfolio.id} label="Take a photo" sourceOverride="camera" />
-              <AddRecordButton portfolioId={portfolio.id} label="Upload file" sourceOverride="file" />
+              <AddRecordButton portfolioId={portfolio.id} label={t("takePhoto")} sourceOverride="camera" />
+              <AddRecordButton portfolioId={portfolio.id} label={t("uploadFile")} sourceOverride="file" />
             </div>
           </div>
         </Card>
+
+        {/* Care requests shortcut */}
+        <Link
+          href="/care-requests"
+          className="flex min-h-[56px] items-center justify-between rounded-2xl border border-sage-border bg-sage-surface px-5 py-3 transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <span className="font-medium text-text-primary">{t("careRequestsShortcut")}</span>
+          <span aria-hidden="true" className="text-primary">→</span>
+        </Link>
+
+        {/* Health Signals (compact, max 3 open) */}
+        <HealthSignalsSection
+          limit={3}
+          onOpenEvidence={(documentId, pageNumber) => setEvidenceFor({ documentId, pageNumber })}
+        />
 
         {/* Needs your attention */}
         {attentionItems.length > 0 && (
@@ -547,6 +572,22 @@ export default function DashboardPage() {
           )}
         </section>
       </div>
+      {evidenceFor && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-2xl rounded-t-2xl bg-canvas p-4 shadow-xl sm:rounded-2xl">
+            <p className="mb-2 text-xs text-text-secondary">
+              Source document · page {evidenceFor.pageNumber}. Open the Records page to view the full document.
+            </p>
+            <Link
+              href="/records"
+              className="inline-flex h-11 items-center rounded-input bg-primary px-5 font-semibold text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              onClick={() => setEvidenceFor(null)}
+            >
+              Open Records
+            </Link>
+          </div>
+        </div>
+      )}
     </PageTransition>
   );
 }

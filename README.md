@@ -135,7 +135,7 @@ Visit [http://localhost:3000](http://localhost:3000). A silent anonymous session
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | TypeScript type checking |
 | `npm test` | Run Vitest unit tests (491 tests) |
-| `npm run test:e2e` | Run Playwright E2E tests |
+| `npm run test:e2e` | Run Playwright E2E tests (app-shell suite on port 3100) |
 | `npm run format` | Format with Prettier |
 | `npm run secrets:scan` | Scan tracked files for committed secrets |
 | `npm run ai:check` | Verify Ollama connectivity and model availability |
@@ -357,15 +357,55 @@ Runs: secrets scan, lint, typecheck, unit tests, build, and AI check.
 
 ## Limitations
 
-- Requires Ollama running locally for AI features (no cloud AI fallback)
+- AI features require Ollama running locally; **the core rural-care workflow (records, offline queue, triage, appointments, pharmacy availability) does NOT depend on AI availability**
 - OCR quality depends on document image resolution and scan quality
-- No multi-language support beyond English
-- No live EHR integration or real-time clinician communication
+- Interface languages: English, हिन्दी (Hindi), ଓଡ଼ିଆ (Odia); medical record content is never translated
 - Background push notifications require Web Push configuration
-- Single user role (patient/caregiver)
-- No offline document processing
 - Storage bucket creation may require manual setup via Supabase Dashboard
 - AI is not a medical professional
+
+### Rural-care platform limitations (Parts 1–5)
+
+- **Real participation required for live data.** Clinician queues, appointments, and pharmacy availability show honest empty states until genuine clinicians/pharmacy operators register and act. Nothing is simulated.
+- **WebRTC video needs real infrastructure.** No TURN/STUN relay is configured by default, so peer-to-peer media cannot be guaranteed — especially on 2G/3G. Secure text and store-and-forward messaging are the dependable fallback paths, fully functional offline. Video/audio only via authorized, confirmed appointments.
+- **Not a diagnostic or emergency-response system.** The deterministic triage engine sorts requests by broad urgency signals; it never diagnoses, prescribes, or contacts emergency services. Region emergency guidance is configured by administrators and is informational only.
+- **Pharmacy availability is only as current as the pharmacy's last confirmation** — stale statuses are shown as "Not recently confirmed," never as current availability.
+- **Staff roles are server-assigned** (admin-key API for facility/pharmacy memberships). There is no self-service clinician signup.
+- **Metrics are aggregate-only.** No symptom text, document contents, or identifiers ever enter the metrics layer.
+
+---
+
+## Rural-Care Platform (Parts 1–5)
+
+The repository now includes a complete offline-first rural-care workflow on top of the original record-organization features:
+
+| Part | Capability | Key docs |
+|---|---|---|
+| 1 | Offline-first PWA, IndexedDB queue, en/hi/or i18n, secure capture | `docs/offline-first-part1.md` |
+| 2 | Deterministic triage, care-request packets | `docs/safe-triage-part2.md` |
+| 3 | Clinician availability, appointments, consent-based sharing, text-first consultation | `docs/care-coordination-part3.md` |
+| 4 | Pharmacist-confirmed medicine availability | `docs/pharmacy-stock-part4.md` |
+| 5 | Journey view, metrics, resilience testing, region config, release readiness | `docs/release-readiness-part5.md`, `docs/architecture.md`, `docs/security-privacy.md`, `docs/operations-runbook.md`, `docs/demo-script.md`, `docs/deployment-checklist.md` |
+
+### Patient journey view
+
+`/care-requests/[id]` renders a unified journey built ONLY from real queue and server state (see `src/lib/journey/status.ts`). Steps: captured → saved on device → synchronized → submitted → safety routing → review → care-team action → appointment/message → record sharing → medicine availability → completed/needs attention. Each step shows a timestamp when one genuinely exists and a plain-language explanation, in English, Hindi, and Odia.
+
+### Reliability dashboard
+
+`/reliability` (staff-only) shows real recorded operational events with transparent definitions (sync reliability, availability freshness, time-to-clinician-action, consultation-fallback rate). It truthfully shows "No data yet" when nothing has been recorded. Data comes from the privacy-safe `reliability_metrics` table (migration 021) — aggregate counts and durations only, no identifiers.
+
+### Network resilience test mode (development only)
+
+Simulate offline / slow-2G / slow-3G / timeout / mid-sync-drop conditions from the dev-only panel (bottom-right in development builds, disabled in production). Profiles delay or drop requests exactly like a real bad network; queued actions follow their real retry path and never fake success. See `docs/operations-runbook.md`.
+
+### Region configuration
+
+Region-specific behavior (languages, emergency guidance text/number, appointment hours, freshness thresholds, consultation modes, feature flags) lives in the `region_config` table (migration 022), managed by coordinators via `src/lib/region/`. No town, hospital, phone number, or language is hard-coded; unconfigured regions show generic safe defaults. See `docs/operations-runbook.md` for adding a region without code changes.
+
+### Staff roles
+
+Clinician/coordinator roles are assigned server-side via the admin-key-guarded API (see Part 3 docs). Pharmacy operator/manager roles live in `pharmacy_memberships` (migration 020). Clients can never assert a role.
 
 ---
 

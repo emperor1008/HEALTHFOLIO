@@ -83,6 +83,13 @@ export async function middleware(request: NextRequest) {
     "/health-tracking",
     "/medicines",
     "/routine",
+    // Part 1–5 surfaces (audit fix: these were missing, letting unauthenticated
+    // visitors render app shells that then failed per-request with 401s).
+    "/care-requests",
+    "/consultations",
+    "/pharmacy",
+    "/staff",
+    "/reliability",
   ];
   const isProtectedRoute = protectedPrefixes.some((prefix) =>
     pathname.startsWith(prefix)

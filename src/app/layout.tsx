@@ -11,6 +11,7 @@ export const metadata: Metadata = {
     "consultation preparation",
     "health organization",
   ],
+  manifest: "/manifest.webmanifest",
   openGraph: {
     title: "Healthfolio",
     description: "Your health history, clearly organized.",
@@ -24,6 +25,8 @@ export const viewport: Viewport = {
   maximumScale: 5,
   themeColor: "#0F5C5E",
 };
+
+import { Providers } from "./providers";
 
 import { HealthfolioSplash } from "@/components/branding/HealthfolioSplash";
 
@@ -42,7 +45,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-canvas font-sans text-text-primary antialiased">
         <HealthfolioSplash />
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

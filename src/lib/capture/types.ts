@@ -31,7 +31,9 @@ export const VALID_CAPTURE_TRANSITIONS: Record<CaptureState, CaptureState[]> = {
   camera_ready: ["capturing", "cancelled", "failed"],
   capturing: ["reviewing", "camera_ready", "cancelled", "failed"],
   reviewing: ["preparing_upload", "camera_ready", "cancelled", "failed"],
-  preparing_upload: ["uploading", "cancelled", "failed"],
+  // "completed" from preparing_upload = staged offline (saved on device,
+  // no server upload happened) — a truthful terminal state for offline capture.
+  preparing_upload: ["uploading", "cancelled", "failed", "completed"],
   uploading: ["uploaded", "failed", "cancelled"],
   uploaded: ["processing", "failed"],
   processing: ["completed", "failed"],

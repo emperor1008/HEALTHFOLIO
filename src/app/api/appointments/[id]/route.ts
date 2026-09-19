@@ -48,7 +48,7 @@ export async function PATCH(
 
     // Verify appointment ownership
     const { data: appointment, error: fetchError } = await supabase
-      .from("appointments")
+      .from("care_appointments")
       .select("id, starts_at, user_id")
       .eq("id", appointmentId)
       .eq("user_id", user.id)
@@ -78,7 +78,7 @@ export async function PATCH(
 
     // Update appointment
     const { error: updateError } = await supabase
-      .from("appointments")
+      .from("care_appointments")
       .update(updates)
       .eq("id", appointmentId);
 

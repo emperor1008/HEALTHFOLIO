@@ -2,6 +2,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAIProvider } from "@/lib/ai/provider";
 import type { AgentRunState } from "./controller";
 import { createEvents } from "ics";
+import {
+  runSignalMonitorForMeasurement,
+  archiveSignalsForInvalidatedMeasurement,
+} from "@/lib/signals/service";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 type ToolResult = { success: boolean; data?: unknown; errorCode?: string; artifactType?: string; artifactId?: string; authorizedDownloadPath?: string };
@@ -974,6 +978,13 @@ async function verifyMeasurement(
     .update(updateData)
     .eq("id", measurementId);
 
+  // Health Signal Monitor: deterministic post-review hook (never throws).
+  if (decision === "verified" || decision === "corrected") {
+    await runSignalMonitorForMeasurement(admin, userId, measurementId);
+  } else if (decision === "rejected") {
+    await archiveSignalsForInvalidatedMeasurement(admin, userId, measurementId, "measurement_rejected");
+  }
+
   return {
     success: true,
     data: { measurementId, verificationStatus: decision },
@@ -994,6 +1005,14 @@ async function rebuildMeasurements(
     .eq("document_id", documentId)
     .eq("user_id", userId)
     .is("invalidated_at", null);
+
+  // Archive open signals that reference the invalidated measurements.
+  await archiveSignalsForInvalidatedMeasurement(
+    admin,
+    userId,
+    documentId,
+    "measurement_invalidated"
+  );
 
   return {
     success: true,

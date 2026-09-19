@@ -6,8 +6,12 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
+import { useLanguage } from "@/lib/i18n/language-context";
+import { LANGUAGES, LANGUAGE_LABELS } from "@/lib/i18n";
+import type { Language } from "@/lib/i18n";
 
 export default function SettingsPage() {
+  const { language, setLanguage, t } = useLanguage();
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -102,6 +106,41 @@ export default function SettingsPage() {
             Save profile
           </Button>
         </form>
+      </Card>
+
+      {/* Language */}
+      <Card padding="lg">
+        <h2 className="text-lg font-semibold text-text-primary">
+          {t("languageSettings")}
+        </h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          {t("languageSettingsHint")}
+        </p>
+        <div
+          role="radiogroup"
+          aria-label={t("languageSettings")}
+          className="mt-4 flex flex-wrap gap-2"
+        >
+          {LANGUAGES.map((lang: Language) => (
+            <button
+              key={lang}
+              type="button"
+              role="radio"
+              aria-checked={language === lang}
+              onClick={() => setLanguage(lang)}
+              className={`min-h-[44px] rounded-full border px-5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                language === lang
+                  ? "border-primary bg-primary text-white"
+                  : "border-border bg-surface text-text-primary hover:bg-primary/5"
+              }`}
+            >
+              {LANGUAGE_LABELS[lang]}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-text-secondary">
+          {t("languageSyncNote")}
+        </p>
       </Card>
 
       {/* Anonymous user notice */}

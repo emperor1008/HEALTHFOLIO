@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
@@ -9,6 +10,18 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonList } from "@/components/ui/Skeletons";
 import { PageTransition, CardHover } from "@/components/ui/PageTransition";
+import {
+  fetchSignalsByStatus,
+  applySignalAction,
+  reevaluateSignal,
+  type SignalRow,
+} from "@/lib/signals/client";
+import { describeSignal } from "@/lib/signals/wording";
+
+const SignalEvidencePanel = dynamic(
+  () => import("@/components/signals/SignalEvidencePanel").then((m) => m.SignalEvidencePanel),
+  { ssr: false }
+);
 
 interface TrendSummary {
   normalizedTestName: string;
@@ -98,6 +111,10 @@ export default function HealthTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [signals, setSignals] = useState<SignalRow[] | null>(null);
+  const [signalsError, setSignalsError] = useState(false);
+  const [pendingSignalId, setPendingSignalId] = useState<string | null>(null);
+  const [evidenceSignalId, setEvidenceSignalId] = useState<string | null>(null);
 
   const loadSummary = useCallback(async (filter: TimeFilter) => {
     setLoading(true);
@@ -133,6 +150,55 @@ export default function HealthTrackingPage() {
   useEffect(() => {
     loadSummary(timeFilter);
   }, [timeFilter, loadSummary]);
+
+  const loadSignals = useCallback(async () => {
+    setSignalsError(false);
+    try {
+      const rows = await fetchSignalsByStatus(["draft", "acknowledged", "saved_for_later"], 20);
+      setSignals(rows);
+    } catch {
+      setSignalsError(true);
+      setSignals([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSignals();
+  }, [loadSignals]);
+
+  async function signalAction(signal: SignalRow, action: "acknowledge" | "dismiss" | "save_for_later") {
+    if (pendingSignalId) return;
+    setPendingSignalId(signal.id);
+    try {
+      await applySignalAction(signal.id, action);
+      setSignals((prev) =>
+        prev
+          ? action === "dismiss"
+            ? prev.filter((s) => s.id !== signal.id)
+            : prev.map((s) =>
+                s.id === signal.id ? { ...s, lifecycle_status: action === "acknowledge" ? "acknowledged" : "saved_for_later" } : s
+              )
+          : prev
+      );
+    } catch {
+      setSignalsError(true);
+    } finally {
+      setPendingSignalId(null);
+    }
+  }
+
+  async function reevaluate(signal: SignalRow) {
+    if (pendingSignalId) return;
+    setPendingSignalId(signal.id);
+    try {
+      await reevaluateSignal(signal.id);
+      await loadSignals();
+    } catch {
+      setSignalsError(true);
+    } finally {
+      setPendingSignalId(null);
+    }
+  }
 
   if (loading && !summary) {
     return (
@@ -330,6 +396,55 @@ export default function HealthTrackingPage() {
           </div>
         )}
 
+        {/* Health Signals */}
+        <section aria-labelledby="signals-heading">
+          <h2 id="signals-heading" className="text-lg font-semibold text-text-primary">
+            Health Signals
+          </h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            Factual comparisons between your verified results. Nothing here is
+            a medical judgment.
+          </p>
+
+          {!signals ? (
+            <div className="mt-4 space-y-3" aria-hidden="true">
+              <Card padding="md"><div className="skeleton h-16 w-full" /></Card>
+              <Card padding="md"><div className="skeleton h-16 w-full" /></Card>
+            </div>
+          ) : signalsError ? (
+            <Card padding="md" className="mt-4">
+              <p className="text-sm text-text-secondary">
+                Health signals are temporarily unavailable. Try again.
+              </p>
+              <Button variant="secondary" size="sm" className="mt-3" onClick={loadSignals}>
+                Try again
+              </Button>
+            </Card>
+          ) : signals.length === 0 ? (
+            <Card padding="md" className="mt-4">
+              <p className="text-sm text-text-secondary">
+                Verified measurements will appear here after you add and review health records.
+              </p>
+            </Card>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {signals.map((signal) => (
+                <SignalCard
+                  key={signal.id}
+                  signal={signal}
+                  busy={pendingSignalId === signal.id}
+                  showAllActions
+                  onAcknowledge={() => signalAction(signal, "acknowledge")}
+                  onSaveForLater={() => signalAction(signal, "save_for_later")}
+                  onDismiss={() => signalAction(signal, "dismiss")}
+                  onReevaluate={() => reevaluate(signal)}
+                  onOpenEvidence={() => setEvidenceSignalId(signal.id)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
         {/* Safety notice */}
         <Card padding="md" className="border-border/50 bg-canvas/60">
           <p className="text-xs leading-relaxed text-text-secondary">
@@ -339,6 +454,96 @@ export default function HealthTrackingPage() {
           </p>
         </Card>
       </div>
+      {evidenceSignalId && (() => {
+        const signal = signals?.find((s) => s.id === evidenceSignalId);
+        if (!signal) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4">
+            <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-canvas p-4 shadow-xl sm:rounded-2xl">
+              <SignalEvidencePanel
+                latestMeasurementId={signal.latest_measurement_id}
+                baselineMeasurementId={signal.baseline_measurement_id}
+                onClose={() => setEvidenceSignalId(null)}
+              />
+            </div>
+          </div>
+        );
+      })()}
     </PageTransition>
+  );
+}
+
+function SignalCard({
+  signal,
+  busy,
+  showAllActions = false,
+  onAcknowledge,
+  onSaveForLater,
+  onDismiss,
+  onReevaluate,
+  onOpenEvidence,
+}: {
+  signal: SignalRow;
+  busy: boolean;
+  showAllActions?: boolean;
+  onAcknowledge: () => void;
+  onSaveForLater: () => void;
+  onDismiss: () => void;
+  onReevaluate?: () => void;
+  onOpenEvidence: () => void;
+}) {
+  const copy = describeSignal(signal.signal_type as never, signal.display_name, signal.payload);
+  const statusLabel: Record<string, string> = {
+    draft: "New",
+    acknowledged: "Acknowledged",
+    saved_for_later: "Saved for later",
+    dismissed: "Dismissed",
+    archived: "Archived",
+  };
+
+  return (
+    <Card padding="md" className="transition-colors hover:border-primary/30">
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-text-primary">{copy.headline}</h3>
+            <p className="mt-0.5 text-xs text-text-secondary">{signal.display_name}</p>
+          </div>
+          <Badge variant={signal.lifecycle_status === "draft" ? "info" : "default"}>
+            {statusLabel[signal.lifecycle_status] ?? "New"}
+          </Badge>
+        </div>
+
+        <ul className="space-y-1 text-sm text-text-secondary">
+          {copy.lines.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button variant="secondary" size="sm" onClick={onOpenEvidence}>
+            View evidence
+          </Button>
+          <Button size="sm" onClick={onAcknowledge} disabled={busy}>
+            Acknowledge
+          </Button>
+          {showAllActions && (
+            <>
+              <Button variant="secondary" size="sm" onClick={onSaveForLater} disabled={busy}>
+                Save for later
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onDismiss} disabled={busy}>
+                Dismiss
+              </Button>
+              {onReevaluate && (
+                <Button variant="ghost" size="sm" onClick={onReevaluate} disabled={busy}>
+                  Re-evaluate comparison
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }

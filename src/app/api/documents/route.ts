@@ -127,8 +127,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[documents] user.id:", user.id, "portfolioId:", portfolioId, "documentId:", documentId);
-    // Create document record
+    // Create document record (no PII logging — user ids never go to logs)
     const { error: docError } = await admin.from("documents").insert({
       id: documentId,
       user_id: user.id,
