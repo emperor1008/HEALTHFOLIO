@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
   const input = parsed.data;
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // Load request, then verify membership against ITS pharmacy.
   const { data: request } = await admin

@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // The clinician must hold an accepted assignment for this request.
   const { data: assignment } = await admin
@@ -107,7 +107,7 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin
     .from("care_appointments")
     .select("id, care_request_id, state, mode, proposed_starts_at, confirmed_starts_at, updated_at")

@@ -9,10 +9,11 @@
 import { useEffect, useState } from "react";
 import {
   RESILIENCE_PROFILES,
+  applyConnectivityShim,
   readResilienceProfile,
   writeResilienceProfile,
   type ResilienceProfile,
-} from "@/lib/dev/network-resilience";
+} from "@tests/support/network-resilience";
 
 export function NetworkResiliencePanel() {
   const [enabled, setEnabled] = useState(false);
@@ -22,6 +23,9 @@ export function NetworkResiliencePanel() {
     if (process.env.NODE_ENV === "production") return;
     setEnabled(true);
     setProfile(readResilienceProfile());
+    // Reflect a persisted "offline" profile in navigator.onLine so the
+    // queue UI stays truthful after a reload while simulating a drop.
+    applyConnectivityShim();
   }, []);
 
   if (!enabled) return null;
@@ -44,6 +48,7 @@ export function NetworkResiliencePanel() {
           const next = e.target.value as ResilienceProfile;
           setProfile(next);
           writeResilienceProfile(next);
+          applyConnectivityShim();
         }}
         className="mt-1 w-full rounded border border-border bg-white px-2 py-1.5 text-forest-900"
       >

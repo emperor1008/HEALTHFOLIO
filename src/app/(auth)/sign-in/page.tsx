@@ -29,7 +29,7 @@ export default function SignInPage() {
         return;
       }
 
-      const supabase = createClient();
+      const supabase = await createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,

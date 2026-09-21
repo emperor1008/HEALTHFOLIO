@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const { portfolioId, appointmentId } = parsed.data;
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Get verified events
     const { data: events } = await admin

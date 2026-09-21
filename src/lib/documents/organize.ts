@@ -19,7 +19,7 @@ import {
   CONFIDENCE_THRESHOLDS,
 } from "./taxonomy";
 
-const ADMIN = createAdminClient();
+const ADMIN = await createAdminClient();
 
 // ─── Duplicate Detection ──────────────────────────────────────────────────
 

@@ -17,7 +17,7 @@ const createSessionSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   const { portfolioId, sourceType, expectedPageCount, idempotencyKey } = parsed.data;
 
   // Verify portfolio ownership
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: portfolio } = await admin
     .from("portfolios")
     .select("id")

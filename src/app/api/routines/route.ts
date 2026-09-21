@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
 export async function GET(_request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -22,7 +22,7 @@ export async function GET(_request: NextRequest) {
     );
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // Get today's date boundaries in user's timezone
   const today = new Date().toISOString().split("T")[0];
@@ -79,7 +79,7 @@ const createPlanSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { prescriptionItemId, displayInstruction, planType, timezone, startDate, endDate, timeSlots } = parsed.data;
 
   // Verify prescription item ownership

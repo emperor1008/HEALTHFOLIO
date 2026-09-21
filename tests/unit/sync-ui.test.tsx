@@ -130,10 +130,12 @@ afterEach(() => {
 // ─── Tests ───────────────────────────────────────────────────────────────
 
 describe("SyncStatus truthful states", () => {
-  it("shows 'Synced securely' when online with an empty queue", async () => {
+  it("renders NOTHING when online with an empty queue (healthy = quiet)", async () => {
     const utils = await renderWithProviders(<SyncStatus />);
     await waitFor(() => expect(utils.probeRef.current?.ready).toBe(true));
-    expect(screen.getByText("Synced securely")).toBeInTheDocument();
+    // Polished UX: no status card at all when everything is synchronized.
+    expect(screen.queryByText("Synced securely")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     utils.restore();
   });
 
@@ -186,8 +188,11 @@ describe("no raw errors on Home", () => {
 });
 
 describe("accessibility", () => {
-  it("provides a live-region announcement element for sync-state changes", async () => {
-    const utils = await renderWithProviders(<SyncStatus />);
+  it("provides a live-region announcement element when a state card is shown", async () => {
+    // Offline with pending items renders the "Saved on this device" card,
+    // which carries the polite live region for state changes.
+    backing.set("item-1", makeItem());
+    const utils = await renderWithProviders(<SyncStatus />, { navigatorOnLine: false });
     await waitFor(() => expect(utils.probeRef.current?.ready).toBe(true));
     const statusEl = document.querySelector('[role="status"][aria-live="polite"]');
     expect(statusEl).not.toBeNull();

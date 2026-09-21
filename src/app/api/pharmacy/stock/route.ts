@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "not_a_member" }, { status: 403 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // Idempotency: if this exact key already recorded for (pharmacy, medicine),
   // return the existing event (HTTP 200, same shape) — no duplicate event.
@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "not_a_member" }, { status: 403 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin
     .from("pharmacy_stock_events")
     .select(

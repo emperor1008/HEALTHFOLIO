@@ -144,3 +144,31 @@ export function applyResilienceToFetch(
 export function isResilienceTestModeActive(): boolean {
   return isDevRuntime() && readResilienceProfile() !== "off";
 }
+
+/**
+ * Mirror the simulated profile into the browser's connectivity signal so the
+ * offline queue's UI states stay truthful under simulation: with the
+ * "offline" profile, navigator.onLine reports false and an "offline" event
+ * fires, so pending rows show "Waiting for connection" (not "Syncing").
+ * Restores the real getter for every other profile. Dev-only; no-op when
+ * the prototype descriptor cannot be adjusted.
+ */
+export function applyConnectivityShim(): void {
+  if (!isDevRuntime() || typeof window === "undefined") return;
+  const offlineSim = readResilienceProfile() === "offline";
+  try {
+    const own = Object.getOwnPropertyDescriptor(window.navigator, "onLine");
+    if (offlineSim) {
+      Object.defineProperty(window.navigator, "onLine", {
+        get: () => false,
+        configurable: true,
+      });
+      window.dispatchEvent(new Event("offline"));
+    } else if (own) {
+      delete (window.navigator as { onLine?: boolean }).onLine;
+      window.dispatchEvent(new Event("online"));
+    }
+  } catch {
+    /* environment forbids the shim — the fetch-level drop still applies */
+  }
+}

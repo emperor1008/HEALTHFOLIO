@@ -21,8 +21,9 @@ import {
 } from "./extraction-schemas";
 import { normalizeTestName, normalizeUnit } from "@/lib/measurements/normalization";
 import { calculateRangeStatus } from "@/lib/measurements/status";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-type AdminClient = ReturnType<typeof createAdminClient>;
+type AdminClient = SupabaseClient;
 
 const EXTRACTION_PROMPT_VERSION = "lab-report-v1";
 
@@ -59,7 +60,7 @@ export async function extractLabReport(params: {
   errorCode?: string;
 }> {
   const { documentId, userId, portfolioId } = params;
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // 1. Verify document ownership
   const { data: doc, error: docErr } = await admin

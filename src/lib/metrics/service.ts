@@ -7,11 +7,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateMetric, type MetricRecord } from "./events";
 
-export function recordMetric(input: unknown): void {
+export async function recordMetric(input: unknown): Promise<void> {
   const record: MetricRecord | null = validateMetric(input);
   if (!record) return; // invalid → silently dropped (never breaks the request)
   try {
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
     void admin
       .from("reliability_metrics")
       .insert({
@@ -34,7 +34,7 @@ export interface MetricSummary {
 }
 
 export async function getMetricSummary(): Promise<MetricSummary> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin
     .from("reliability_metrics")
     .select("event, duration_ms, metadata, created_at")

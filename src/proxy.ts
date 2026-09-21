@@ -2,7 +2,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Middleware that protects application routes using Supabase anonymous auth.
+ * Route proxy (Next.js 16 convention; formerly middleware.ts) that protects
+ * application routes using Supabase anonymous auth.
  *
  * Flow:
  * - "/" redirects to bootstrap which creates an anonymous session
@@ -11,7 +12,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * - Missing session → redirect to bootstrap (not a login page)
  */
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: { headers: request.headers },
   });

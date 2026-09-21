@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify portfolio ownership
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
     const { data: portfolio } = await admin
       .from("portfolios")
       .select("id")

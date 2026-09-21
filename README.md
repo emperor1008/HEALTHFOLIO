@@ -4,6 +4,8 @@
 
 An intelligent personal health-record platform that securely organizes medical documents, extracts verifiable information, tracks health trends, and helps users prepare for informed healthcare conversations.
 
+**Live showcase:** https://emperor1008.github.io/HEALTHFOLIO/ (static public site — see [Public Showcase](#public-showcase))
+
 ---
 
 ## What is Healthfolio?
@@ -31,6 +33,38 @@ Healthfolio is a responsive web application that helps patients organize scatter
 ### Medical Safety Boundary
 
 Healthfolio organizes medical information and helps you prepare for consultations. **It does not diagnose conditions, recommend treatment, prescribe medicine, calculate doses, or replace a healthcare professional.**
+
+---
+
+## Public Showcase
+
+A polished, static product website is published to GitHub Pages:
+
+> **https://emperor1008.github.io/HEALTHFOLIO/**
+
+### What GitHub Pages hosts — and what it does not
+
+- Pages serves **only** the static files in `showcase/` (plain HTML/CSS/SVG, no application code, no backend).
+- It **never** serves the Next.js application, `.next` output, API routes, database migrations, environment files, or test code.
+- No Supabase credentials, service-role keys, tokens, or environment values are referenced by the showcase or embedded in its assets.
+- The secure, server-backed application (records, offline queue, triage, care coordination, pharmacy console) requires a real application deployment with a configured Supabase project; it is intentionally not exposed from GitHub Pages. The showcase shows a truthful "Secure application deployment is being prepared" label instead of a fake app link.
+
+### How deployment works
+
+- Workflow: `.github/workflows/deploy-pages.yml`
+- Trigger: every push to `main` (and manual `workflow_dispatch`).
+- On each run the workflow verifies the whole repository first — secrets scan (`npm run secrets:scan`), lint (`npm run lint`), typecheck (`npm run typecheck`), unit tests (`npm test`), and the production build (`npm run build`) — and publishes `showcase/` to Pages **only if every step passes**.
+- Deploys use the official actions (`actions/checkout`, `actions/setup-node`, `actions/configure-pages`, `actions/upload-pages-artifact`, `actions/deploy-pages`) with least-privilege permissions (`contents: read`, `pages: write`, `id-token: write`), Node.js 20 with npm caching, and a `pages` concurrency group so an older deployment can never overwrite a newer one.
+
+### One-time repository setting
+
+GitHub Pages must be pointed at the workflow once:
+
+1. Open the repository on GitHub → **Settings** → **Pages**.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Done. Every subsequent push to `main` verifies and redeploys automatically; CI status for each run is visible under the repository's **Actions** tab.
+
+If the site 404s after the first successful run, confirm this setting was applied and the workflow completed under **Actions**.
 
 ---
 
@@ -370,7 +404,7 @@ Runs: secrets scan, lint, typecheck, unit tests, build, and AI check.
 - **WebRTC video needs real infrastructure.** No TURN/STUN relay is configured by default, so peer-to-peer media cannot be guaranteed — especially on 2G/3G. Secure text and store-and-forward messaging are the dependable fallback paths, fully functional offline. Video/audio only via authorized, confirmed appointments.
 - **Not a diagnostic or emergency-response system.** The deterministic triage engine sorts requests by broad urgency signals; it never diagnoses, prescribes, or contacts emergency services. Region emergency guidance is configured by administrators and is informational only.
 - **Pharmacy availability is only as current as the pharmacy's last confirmation** — stale statuses are shown as "Not recently confirmed," never as current availability.
-- **Staff roles are server-assigned** (admin-key API for facility/pharmacy memberships). There is no self-service clinician signup.
+- **Staff roles are server-assigned** via the platform-admin console or the local `npm run staff:bootstrap` provisioning script (roles live in the `user_roles` registry, migration 026; see `docs/operations-runbook.md`). There is no self-service clinician signup.
 - **Metrics are aggregate-only.** No symptom text, document contents, or identifiers ever enter the metrics layer.
 
 ---
@@ -389,15 +423,15 @@ The repository now includes a complete offline-first rural-care workflow on top 
 
 ### Patient journey view
 
-`/care-requests/[id]` renders a unified journey built ONLY from real queue and server state (see `src/lib/journey/status.ts`). Steps: captured → saved on device → synchronized → submitted → safety routing → review → care-team action → appointment/message → record sharing → medicine availability → completed/needs attention. Each step shows a timestamp when one genuinely exists and a plain-language explanation, in English, Hindi, and Odia.
+The care-requests screen renders a unified journey built ONLY from real queue and server state (see `src/lib/journey/status.ts`). Steps: captured → saved on device → synchronized → submitted → safety routing → review → care-team action → appointment/message → record sharing → medicine availability → completed/needs attention. Each step shows a timestamp when one genuinely exists and a plain-language explanation, in English, Hindi, and Odia.
 
 ### Reliability dashboard
 
 `/reliability` (staff-only) shows real recorded operational events with transparent definitions (sync reliability, availability freshness, time-to-clinician-action, consultation-fallback rate). It truthfully shows "No data yet" when nothing has been recorded. Data comes from the privacy-safe `reliability_metrics` table (migration 021) — aggregate counts and durations only, no identifiers.
 
-### Network resilience test mode (development only)
+### Network resilience test mode (development tooling)
 
-Simulate offline / slow-2G / slow-3G / timeout / mid-sync-drop conditions from the dev-only panel (bottom-right in development builds, disabled in production). Profiles delay or drop requests exactly like a real bad network; queued actions follow their real retry path and never fake success. See `docs/operations-runbook.md`.
+Automated tests simulate offline / slow-2G / slow-3G / timeout / mid-sync-drop conditions through the resilience harness in `tests/support/`. The harness is not mounted in the running application and cannot be reached by normal users; production builds contain no test panel, network-profile selector, or debug overlay. Queued actions always follow their real retry path and never fake success.
 
 ### Region configuration
 
@@ -405,7 +439,7 @@ Region-specific behavior (languages, emergency guidance text/number, appointment
 
 ### Staff roles
 
-Clinician/coordinator roles are assigned server-side via the admin-key-guarded API (see Part 3 docs). Pharmacy operator/manager roles live in `pharmacy_memberships` (migration 020). Clients can never assert a role.
+Clinician/coordinator roles are assigned server-side through the platform-admin console (`/staff/admin`) or the local `npm run staff:bootstrap` provisioning script; role capability requires an active row in the `user_roles` registry (migration 026). Pharmacy operator/manager roles live in `pharmacy_memberships` (migration 020). Clients can never assert a role.
 
 ---
 

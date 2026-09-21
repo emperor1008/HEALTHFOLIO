@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Hide the Next.js development badge (the black "N" bubble) during local
+  // development. This is the supported devIndicators option — it affects only
+  // the visual indicator, not error reporting or dev overlays.
+  devIndicators: false,
   experimental: {
     serverActions: {
       bodySizeLimit: '12mb',

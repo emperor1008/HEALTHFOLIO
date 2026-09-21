@@ -14,19 +14,43 @@ npm run dev               # http://localhost:3000
 
 ## 1. Configure a clinician
 
-1. Get the clinician's Supabase `auth.users.id` and facility id.
-2. Assign the membership server-side (admin key in server env):
+Roles are stored server-side in the `user_roles` registry (migration 026;
+RLS-enabled with **no client policies** — only server code can read/write
+it). The old `STAFF_ROLE_ADMIN_KEY` header endpoint was removed; there is no
+browser path that can write roles.
+
+1. First-time platform admin (local machine only):
 
 ```bash
-curl -X POST http://localhost:3000/api/staff/roles \
-  -H "Content-Type: application/json" \
-  -H "x-admin-key: $STAFF_ROLE_ADMIN_KEY" \
-  -d '{"user_id":"<uuid>","facility_id":"<uuid>","role":"clinician"}'
+npm run staff:bootstrap -- --role platform_admin --user <admin-user-uuid> --confirm
 ```
 
-3. Clinician opens `/staff`, creates their profile (name, specialty,
+   The script requires `SUPABASE_SERVICE_ROLE_KEY` and
+   `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`, refuses to write without
+   `--confirm`, is idempotent, and prints only truncated IDs — never secrets.
+   Without `--confirm` it runs as a dry-run.
+
+2. Assign a clinician (or coordinator / pharmacy operator):
+
+```bash
+npm run staff:bootstrap -- --role clinician --user <user-uuid> \
+  --scope <facility-uuid> [--actor <admin-user-uuid>] --confirm
+```
+
+   Roles: `platform_admin`, `facility_coordinator`, `clinician`,
+   `pharmacy_manager`, `pharmacy_operator`. Scoped roles require `--scope`
+   (facility id for clinician/coordinator, pharmacy id for pharmacy roles)
+   and are mirrored into `facility_memberships` / `pharmacy_memberships` so
+   existing RLS scoping keeps working.
+
+3. Ongoing management happens in the protected console at `/staff/admin`
+   (assign, suspend, reinstate, revoke; every action audited to
+   `staff_admin_audit_events`). Suspension/revocation takes effect on the
+   next request because staff identity is re-resolved per request.
+
+4. Clinician opens `/staff`, creates their profile (name, specialty,
    languages, supported modes) and sets availability to **Available**.
-4. Freshness: availability rows older than the configurable threshold are
+5. Freshness: availability rows older than the configurable threshold are
    excluded from patient-facing "Available care options" automatically; the
    clinician (or a coordinator) just updates their status to refresh it.
 
@@ -104,12 +128,16 @@ data; it is disabled in production builds.
    only** are documented in the README; values never enter Git.
 3. Restart the server; run `npm run secrets:scan` to confirm nothing leaked
    into tracked files.
-4. For `STAFF_ROLE_ADMIN_KEY`: rotate by updating the server env; in-flight
-   role-assignment requests with the old key fail closed (401).
+4. `STAFF_ROLE_ADMIN_KEY` is retired — remove it from the server env. Role
+   provisioning now uses `npm run staff:bootstrap` (service-role key,
+   local-only, `--confirm`-gated) and the `/staff/admin` console
+   (session-authorized platform admins only).
 
 ## 8. Remove staff access
 
 ```sql
+-- Prefer the /staff/admin console (audited). Direct SQL as fallback:
+UPDATE user_roles SET status='revoked' WHERE user_id='<uuid>' AND role='<role>';
 DELETE FROM facility_memberships WHERE user_id='<uuid>' AND facility_id='<facility uuid>';
 DELETE FROM pharmacy_memberships WHERE user_id='<uuid>' AND pharmacy_id='<pharmacy uuid>';
 ```

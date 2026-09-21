@@ -8,10 +8,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { documentId: string } }
+  { params }: { params: Promise<{ documentId: string }> }
 ) {
-  const supabase = createClient();
-  const documentId = params.documentId;
+  const supabase = await createClient();
+  const documentId = (await params).documentId;
 
   const {
     data: { user },
@@ -71,10 +71,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { documentId: string } }
+  { params }: { params: Promise<{ documentId: string }> }
 ) {
-  const supabase = createClient();
-  const documentId = params.documentId;
+  const supabase = await createClient();
+  const documentId = (await params).documentId;
 
   const {
     data: { user },

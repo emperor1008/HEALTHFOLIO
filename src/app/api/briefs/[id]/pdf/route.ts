@@ -6,7 +6,7 @@ import type { BriefContent } from "@/lib/ai/schemas";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -20,8 +20,8 @@ export async function GET(
       );
     }
 
-    const briefId = params.id;
-    const admin = createAdminClient();
+    const briefId = (await params).id;
+    const admin = await createAdminClient();
 
     // Verify brief ownership
     const { data: brief, error: briefError } = await admin

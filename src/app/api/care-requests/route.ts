@@ -73,7 +73,7 @@ export async function POST(req: Request) {
   const { packet } = parsed.data;
   const linkedIds = packet ? packet.linked_document_ids : parsed.data.linked_document_ids;
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // ── Ownership check for every linked document (server-verified) ──────────
   if (linkedIds.length > 0) {
@@ -168,7 +168,7 @@ export async function GET(req: Request) {
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error: listError } = await admin
     .from("care_requests")
     .select(

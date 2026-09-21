@@ -5,12 +5,12 @@ import { generateRequestId, createError, formatErrorResponse } from "@/lib/error
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -23,8 +23,8 @@ export async function POST(
       );
     }
 
-    const documentId = params.id;
-    const admin = createAdminClient();
+    const documentId = (await params).id;
+    const admin = await createAdminClient();
 
     // Verify document ownership
     const { data: doc, error: docError } = await admin

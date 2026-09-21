@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     // the browser supports it; server just validates the enum.
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // The request must belong to the session user.
   const { data: careRequest } = await admin

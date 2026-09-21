@@ -19,16 +19,16 @@ const MessageSchema = z.object({
   client_created_at: z.string().datetime(),
 });
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: appointment } = await admin
     .from("care_appointments")
     .select("id, patient_id, clinician_id")
-    .eq("id", params.id)
+    .eq("id", (await params).id)
     .maybeSingle();
   if (!appointment) {
     return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
@@ -51,7 +51,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const { data, error } = await admin
     .from("consultation_messages")
     .select("id, sender_id, sender_role, body, client_created_at, delivered_at, created_at")
-    .eq("appointment_id", params.id)
+    .eq("appointment_id", (await params).id)
     .order("created_at", { ascending: true })
     .limit(200);
   if (error) {
@@ -60,7 +60,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   return NextResponse.json({ messages: data ?? [] });
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
@@ -78,11 +78,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: appointment } = await admin
     .from("care_appointments")
     .select("id, patient_id, clinician_id, state")
-    .eq("id", params.id)
+    .eq("id", (await params).id)
     .maybeSingle();
   if (!appointment) {
     return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
@@ -106,7 +106,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { data: recent } = await admin
     .from("consultation_messages")
     .select("id, created_at")
-    .eq("appointment_id", params.id)
+    .eq("appointment_id", (await params).id)
     .eq("sender_id", user.id)
     .order("created_at", { ascending: false })
     .limit(30);
@@ -123,7 +123,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const { data: dupe } = await admin
       .from("consultation_messages")
       .select("id")
-      .eq("appointment_id", params.id)
+      .eq("appointment_id", (await params).id)
       .eq("sender_id", user.id)
       .eq("client_created_at", parsed.data.client_created_at)
       .maybeSingle();
@@ -136,7 +136,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { data: message, error } = await admin
     .from("consultation_messages")
     .insert({
-      appointment_id: params.id,
+      appointment_id: (await params).id,
       sender_id: user.id,
       sender_role: role,
       body: parsed.data.body,

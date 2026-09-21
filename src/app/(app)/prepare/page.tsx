@@ -106,7 +106,7 @@ export default function PreparePage() {
 
   const processFiles = useCallback(
     async (selectedFiles: FileList) => {
-      const supabase = createClient();
+      const supabase = await createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -254,7 +254,7 @@ export default function PreparePage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();

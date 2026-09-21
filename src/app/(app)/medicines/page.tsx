@@ -56,7 +56,7 @@ export default function MedicinesPage() {
   useEffect(() => {
     async function load() {
       try {
-        const supabase = createClient();
+        const supabase = await createClient();
         const {
           data: { user },
         } = await supabase.auth.getUser();

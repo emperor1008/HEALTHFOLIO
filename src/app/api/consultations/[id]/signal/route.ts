@@ -21,7 +21,7 @@ const SignalSchema = z.object({
   detail: z.string().max(200).optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
@@ -38,11 +38,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: appointment } = await admin
     .from("care_appointments")
     .select("id, patient_id, clinician_id, state, room_id")
-    .eq("id", params.id)
+    .eq("id", (await params).id)
     .maybeSingle();
   if (!appointment) {
     return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
@@ -70,7 +70,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Audit the signalling event (redacted metadata only).
   try {
     await admin.from("consultation_audit_events").insert({
-      appointment_id: params.id,
+      appointment_id: (await params).id,
       actor_id: user.id,
       event: `signal:${parsed.data.event}`,
       metadata: parsed.data.detail ? { detail: parsed.data.detail.slice(0, 200) } : {},

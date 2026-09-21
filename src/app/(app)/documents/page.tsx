@@ -31,7 +31,7 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     async function loadDocuments() {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -60,7 +60,7 @@ export default function DocumentsPage() {
 
   async function handlePreview(doc: Document) {
     setPreviewDoc(doc);
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data } = await supabase.storage
       .from("documents")
       .createSignedUrl(doc.id + "/" + doc.original_name, 3600);
@@ -70,7 +70,7 @@ export default function DocumentsPage() {
   async function handleDelete(docId: string) {
     if (!confirm("Are you sure you want to delete this document? This cannot be undone.")) return;
 
-    const supabase = createClient();
+    const supabase = await createClient();
     await supabase.from("documents").delete().eq("id", docId);
     setDocuments((prev) => prev.filter((d) => d.id !== docId));
     setPreviewDoc(null);

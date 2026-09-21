@@ -18,7 +18,7 @@ export interface PharmacyMembership {
 export async function getPharmacyMemberships(
   userId: string,
 ): Promise<PharmacyMembership[]> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin
     .from("pharmacy_memberships")
     .select("pharmacy_id, role")

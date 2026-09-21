@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     // Gather user's extractions and documents for personal-record questions
     const { createClient } = await import("@/lib/supabase/server");
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Fetch extractions and documents in parallel
     const [extractionsResult, documentsResult] = await Promise.all([

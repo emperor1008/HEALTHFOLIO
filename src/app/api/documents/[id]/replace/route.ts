@@ -10,7 +10,7 @@ const replaceSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -27,7 +27,7 @@ export async function POST(
       );
     }
 
-    const documentId = params.id;
+    const documentId = (await params).id;
     const body = await request.json();
     const parsed = replaceSchema.safeParse(body);
 
@@ -42,7 +42,7 @@ export async function POST(
     }
 
     const { replacementDocumentId } = parsed.data;
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Verify both documents belong to user
     const { data: originalDoc } = await admin

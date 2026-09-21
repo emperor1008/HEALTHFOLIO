@@ -153,7 +153,7 @@ describe("A-1: failed queue rows expose recovery actions", () => {
 
 describe("A-3: network resilience profiles affect real fetches", () => {
   it("offline profile drops requests; off profile passes through", async () => {
-    const { applyResilienceToFetch } = await import("@/lib/dev/network-resilience");
+    const { applyResilienceToFetch } = await import("@tests/support/network-resilience");
     const realFetch = vi.fn(() => Promise.resolve(new Response("ok")));
     const wrapped = applyResilienceToFetch(realFetch);
 
@@ -187,9 +187,10 @@ describe("A-2/A-4: integration points exist", () => {
     expect(steps.some((s) => s.state === "done")).toBe(true);
   });
 
-  it("middleware protects the Part 1–5 route prefixes", async () => {
+  it("proxy protects the Part 1–5 route prefixes", async () => {
+    // Next 16 renamed the middleware convention to proxy (src/proxy.ts).
     const src = await import("fs").then((fs) =>
-      fs.promises.readFile("src/middleware.ts", "utf8")
+      fs.promises.readFile("src/proxy.ts", "utf8")
     );
     for (const prefix of ["/care-requests", "/consultations", "/pharmacy", "/staff", "/reliability"]) {
       expect(src).toContain(`"${prefix}"`);

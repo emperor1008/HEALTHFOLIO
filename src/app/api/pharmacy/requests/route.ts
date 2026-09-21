@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
   const input = parsed.data;
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // Pharmacy must exist and be verified — patients cannot message unverified ones.
   const { data: pharmacy } = await admin
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin
     .from("pharmacy_availability_requests")
     .select(

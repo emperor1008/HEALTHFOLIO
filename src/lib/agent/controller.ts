@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAIProvider } from "@/lib/ai/provider";
 import {
   isToolAllowed,
@@ -45,7 +46,7 @@ export async function executeAgentStep(
   runId: string,
   userId: string
 ): Promise<StepResult> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   const { data: run } = await admin
     .from("agent_runs")
@@ -281,7 +282,7 @@ function blocked(errorCode: string, summary: string): StepResult {
 }
 
 async function failStep(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: SupabaseClient,
   runId: string,
   state: AgentRunState,
   decision: { toolName: string; reasoning: string },
@@ -388,7 +389,7 @@ async function decide(
 }
 
 async function recordStep(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: SupabaseClient,
   runId: string,
   state: AgentRunState,
   toolName: string,
@@ -409,7 +410,7 @@ async function recordStep(
 }
 
 async function saveRun(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: SupabaseClient,
   runId: string,
   status: string,
   state: AgentRunState

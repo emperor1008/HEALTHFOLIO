@@ -44,7 +44,7 @@ export async function auditSignalEvent(
   try {
     // Written with the admin client per project convention: audit_events has
     // no INSERT policy for end users. Metadata carries ids/reason codes only.
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
     const metadata: Record<string, string | null> = {
       scope: "health_signal",
       action: event.action,

@@ -27,7 +27,7 @@ export async function getPatientStockView(
   now: Date = new Date(),
   policy: FreshnessPolicy = DEFAULT_FRESHNESS_POLICY,
 ): Promise<PatientStockRow[]> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // Verified pharmacies only; suspended/pending are invisible to patients.
   const { data: pharmacies, error } = await admin

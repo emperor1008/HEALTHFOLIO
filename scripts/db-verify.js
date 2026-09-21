@@ -123,6 +123,8 @@ function main() {
     "pharmacy_audit_events",
     "reliability_metrics",
     "region_config",
+    "user_roles",
+    "staff_admin_audit_events",
     "idempotency_keys",
     "portfolios",
     "consents",

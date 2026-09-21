@@ -13,7 +13,7 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin
     .from("facilities")
     .select("id, name, timezone")

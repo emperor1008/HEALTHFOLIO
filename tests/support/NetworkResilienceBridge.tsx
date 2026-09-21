@@ -15,7 +15,7 @@
  */
 
 import { useEffect } from "react";
-import { applyResilienceToFetch } from "@/lib/dev/network-resilience";
+import { applyResilienceToFetch } from "@tests/support/network-resilience";
 
 export function NetworkResilienceBridge() {
   useEffect(() => {

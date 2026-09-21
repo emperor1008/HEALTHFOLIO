@@ -30,7 +30,7 @@ export function useHealthSpace(): HealthSpaceState {
     async function init() {
       setState({ status: "loading" });
 
-      const supabase = createClient();
+      const supabase = await createClient();
 
       const {
         data: { user },
@@ -128,7 +128,7 @@ export async function fetchHealthOverview(portfolioId: string): Promise<{
   }>;
   pendingMeasurements: number;
 } | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const [docsResult, runsResult, trendsResult, pendingResult] = await Promise.all([
     supabase

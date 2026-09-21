@@ -23,7 +23,7 @@ export async function detectContradictions(
   documentIds: string[],
   userId: string
 ): Promise<Contradiction[]> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   const { data: extractions } = await admin
     .from("extractions")

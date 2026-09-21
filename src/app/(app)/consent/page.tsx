@@ -33,7 +33,7 @@ export default function ConsentPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();

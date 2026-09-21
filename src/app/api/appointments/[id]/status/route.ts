@@ -22,7 +22,7 @@ const StatusSchema = z.object({
   proposed_starts_at: z.string().datetime().optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
@@ -39,13 +39,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: appointment } = await admin
     .from("care_appointments")
     .select(
       "id, care_request_id, clinician_id, patient_id, state, mode, proposed_starts_at, confirmed_starts_at, patient_acknowledged_at"
     )
-    .eq("id", params.id)
+    .eq("id", (await params).id)
     .maybeSingle();
   if (!appointment) {
     return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
@@ -109,14 +109,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { error } = await admin
     .from("care_appointments")
     .update(patch)
-    .eq("id", params.id);
+    .eq("id", (await params).id);
   if (error) {
     return NextResponse.json({ code: "UPDATE_FAILED" }, { status: 500 });
   }
 
   try {
     await admin.from("appointment_status_events").insert({
-      appointment_id: params.id,
+      appointment_id: (await params).id,
       actor_id: user.id,
       prev_state: appointment.state,
       next_state: parsed.data.state,

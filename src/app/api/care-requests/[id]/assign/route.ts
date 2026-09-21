@@ -16,7 +16,7 @@ const AssignSchema = z.object({
   clinician_profile_id: z.string().uuid(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
@@ -37,8 +37,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const requestId = params.id;
+  const admin = await createAdminClient();
+  const requestId = (await params).id;
 
   const { data: careRequest } = await admin
     .from("care_requests")

@@ -5,7 +5,7 @@ import { generateRequestId, createError, formatErrorResponse } from "@/lib/error
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -19,7 +19,7 @@ export async function POST(
       );
     }
 
-    const runId = params.id;
+    const runId = (await params).id;
     const result = await executeAgentStep(runId, user.id);
 
     return NextResponse.json({

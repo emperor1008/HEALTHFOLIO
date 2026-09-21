@@ -18,7 +18,7 @@ machine, and the Zod-per-route conventions.
   table with actor rules, idempotent no-ops),
   `src/lib/appointments/care-options.ts` (deterministic, explainable matcher
   with freshness expiry and capacity).
-- APIs under `src/app/api/`: `staff/roles`, `facilities`,
+- APIs under `src/app/api/`: `staff/admin/roles`, `facilities`,
   `clinicians/me/availability`, `care-options`,
   `care-requests/[id]/assign`, `care-requests/[id]/accept`, `appointments`,
   `appointments/[id]/status`, `appointments/[id]/messages`,
@@ -40,9 +40,10 @@ configured. Therefore Part 3 is built as follows, honestly:
 
 1. **Data model + protected APIs ship for real** (facilities, clinician
    profiles, availability, assignments, appointments, messages, consents,
-   audit) with strict RLS and server-side role checks. Roles are assigned via
-   an **env-key-guarded endpoint** (`STAFF_ROLE_ADMIN_KEY`), never from client
-   input. No clinician accounts are auto-created.
+   audit) with strict RLS and server-side role checks. Roles live in the
+   server-only `user_roles` registry (migration 026) and are provisioned via
+   `npm run staff:bootstrap` or the platform-admin console at `/staff/admin`
+   — never from client input. No clinician accounts are auto-created.
 2. **Patient UI ships for real**: request status detail, available-options
    view driven only by genuine `clinician_profiles` rows, appointment
    confirmation, consent screen, secure text (offline-queued).
@@ -61,10 +62,14 @@ the emergency guidance block is unchanged.
 ## Roles
 
 - `patient` (default, every anonymous/authenticated user)
-- `clinician`, `coordinator` — set only via `POST /api/staff/roles` guarded by
-  `STAFF_ROLE_ADMIN_KEY` (server-only env). Resolution helper
-  `getStaffRole(userId)` reads `facility_memberships` (server-side only);
-  clients can never assert a role.
+- `clinician`, `facility_coordinator`, `pharmacy_operator`,
+  `pharmacy_manager`, `platform_admin` — stored server-side in the
+  `user_roles` registry (RLS-enabled, no client policies) and assigned only
+  by an existing platform admin (`/staff/admin` console) or the local
+  `npm run staff:bootstrap` script. Resolution helper
+  `getStaffIdentity(userId)` reads `facility_memberships` AND requires an
+  active registry row (server-side only); clients can never assert a role,
+  and suspended/revoked staff lose access on the next request.
 
 ## Migration 018 (forward-only, additive)
 
@@ -110,7 +115,8 @@ terminal side-states: `cancelled | declined | expired | needs_attention`.
 
 ## APIs (repository conventions: Zod + getUser + generic error codes)
 
-- `POST /api/staff/roles` — admin-key guarded role assignment
+- `POST/PATCH /api/staff/admin/roles` — platform-admin-only role
+  management (session-authorized; audited; idempotent)
 - `GET /api/facilities` — genuine facilities only (empty list when none)
 - `PATCH /api/clinicians/me/availability` — clinician self-update (audited)
 - `GET /api/care-options` — deterministic match (urgency, language, specialty,

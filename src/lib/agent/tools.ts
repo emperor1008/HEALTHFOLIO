@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAIProvider } from "@/lib/ai/provider";
 import type { AgentRunState } from "./controller";
 import { createEvents } from "ics";
@@ -7,7 +8,7 @@ import {
   archiveSignalsForInvalidatedMeasurement,
 } from "@/lib/signals/service";
 
-type AdminClient = ReturnType<typeof createAdminClient>;
+type AdminClient = SupabaseClient;
 type ToolResult = { success: boolean; data?: unknown; errorCode?: string; artifactType?: string; artifactId?: string; authorizedDownloadPath?: string };
 
 const SAFETY_DISCLAIMER =
@@ -19,7 +20,7 @@ export async function executeTool(
   userId: string,
   state: AgentRunState
 ): Promise<ToolResult> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   try {
     switch (name) {
       case "document.ingest":

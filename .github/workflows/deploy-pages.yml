@@ -1,0 +1,94 @@
+name: Verify and deploy public showcase to GitHub Pages
+
+# On every push to main: verify the whole repository (secrets, lint, types,
+# tests, production build) and only then publish ./showcase as the Pages site.
+# The Next.js application is NOT deployed here — GitHub Pages hosts the static
+# public showcase only.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: read the repo, write Pages, mint an OIDC token for the
+# Pages deployment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let an older deployment overwrite a newer one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Scan for secrets
+        run: npm run secrets:scan
+
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeScript type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Check showcase for forbidden strings
+        run: |
+          ! grep -rInE 'Test mode|development only|FreeBuff|localhost:11434|SUPABASE_SERVICE_ROLE_KEY|AI_API_KEY' showcase/
+
+      # The production build compiles the Next.js application. It needs no
+      # secret values: Supabase client code is only referenced from
+      # session-scoped modules, not from statically prerendered routes, so the
+      # build succeeds with the URL/anon-key names below and never with a
+      # service-role key or any other credential.
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ""
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ""
+
+  deploy:
+    name: Deploy showcase to GitHub Pages
+    needs: verify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      # Upload ONLY the static showcase directory. The application source,
+      # .next output, environment files, migrations, and tests are never
+      # published.
+      - name: Upload showcase as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: showcase
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,13 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 
 /**
  * Server-only Supabase client using the service-role key.
  * Falls back to a user-scoped server client when the service-role key is not configured.
  * Must NEVER be imported in client components or browser code.
  */
-export function createAdminClient() {
+export async function createAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (serviceRoleKey) {
@@ -25,7 +24,10 @@ export function createAdminClient() {
 
   // Fallback: create a user-scoped server client from cookies
   // This enforces RLS but avoids requiring a service-role key
-  const cookieStore = cookies();
+  // Dynamic import keeps this module free of a static next/headers dependency,
+  // so it can be bundled wherever the service-role path is used.
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

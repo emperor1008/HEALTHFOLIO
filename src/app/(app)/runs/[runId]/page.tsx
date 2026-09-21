@@ -52,7 +52,7 @@ export default function RunDetailPage() {
   const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async () => {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -110,7 +110,7 @@ export default function RunDetailPage() {
         autoStepRef.current = true;
 
         try {
-          const supabase = createClient();
+          const supabase = await createClient();
           const {
             data: { session },
           } = await supabase.auth.getSession();
@@ -179,7 +179,7 @@ export default function RunDetailPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();

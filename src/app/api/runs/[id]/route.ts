@@ -5,7 +5,7 @@ import { generateRequestId, createError, formatErrorResponse } from "@/lib/error
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -22,8 +22,8 @@ export async function GET(
       );
     }
 
-    const runId = params.id;
-    const admin = createAdminClient();
+    const runId = (await params).id;
+    const admin = await createAdminClient();
 
     const { data: run, error: runError } = await admin
       .from("agent_runs")

@@ -10,7 +10,7 @@ import { isEmergencyQuery, getEmergencyMessage } from "@/lib/medicines/safety";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { medicineId: string } }
+  { params }: { params: Promise<{ medicineId: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -23,7 +23,7 @@ export async function GET(
       );
     }
 
-    const medicineId = params.medicineId;
+    const medicineId = (await params).medicineId;
 
     // Check for emergency context in query params
     const { searchParams } = new URL(request.url);

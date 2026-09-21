@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Healthfolio — Offline-first rural care coordination</title>
+  <meta name="description" content="Healthfolio is an offline-first, multilingual rural-care coordination platform. Patient information is saved locally during connectivity loss and synchronized safely after the network returns." />
+  <meta name="theme-color" content="#FAF7F0" />
+  <link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon.png" />
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
+  <style>
+    :root {
+      --ivory: #FAF7F0;
+      --ivory-deep: #F3EEE2;
+      --card: #FFFFFF;
+      --forest: #123F33;
+      --teal: #16655A;
+      --teal-dark: #0F4C43;
+      --teal-soft: #E3EEE8;
+      --sage: #9DBBAC;
+      --sage-soft: #EFF4EE;
+      --terracotta: #B95C3D;
+      --terracotta-soft: #F7E9E2;
+      --ink: #22302B;
+      --muted: #55645E;
+      --line: #E4DCCB;
+      --radius: 18px;
+      --shadow: 0 1px 2px rgba(18, 63, 51, 0.05), 0 10px 30px -18px rgba(18, 63, 51, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(1100px 500px at 85% -10%, rgba(157, 187, 172, 0.18), transparent 60%),
+        var(--ivory);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans Devanagari", "Noto Sans Oriya", sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    img { max-width: 100%; height: auto; }
+
+    a { color: var(--teal); text-underline-offset: 3px; }
+    a:hover { color: var(--teal-dark); }
+
+    :focus-visible {
+      outline: 3px solid var(--teal);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      background: var(--teal);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 0 0 12px 0;
+      z-index: 100;
+    }
+    .skip-link:focus { left: 0; }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ---------- Header ---------- */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(250, 247, 240, 0.86);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .site-header .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 68px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--forest);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .brand img { width: 38px; height: 38px; border-radius: 10px; }
+    .brand .name { font-size: 1.12rem; }
+    .header-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1.5px solid var(--teal);
+      color: var(--teal);
+      text-decoration: none;
+      min-height: 44px;
+    }
+    .header-cta:hover { background: var(--teal-soft); color: var(--teal-dark); }
+
+    /* ---------- Hero ---------- */
+    .hero { padding: 84px 0 72px; }
+    .hero .wrap {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr);
+      gap: 56px;
+      align-items: center;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--sage-soft);
+      border: 1px solid rgba(157, 187, 172, 0.55);
+      color: var(--forest);
+      font-size: 0.86rem;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 999px;
+      margin: 0 0 22px;
+    }
+    .eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sage); }
+    .hero h1 {
+      font-size: clamp(2.1rem, 5.4vw, 3.35rem);
+      line-height: 1.12;
+      letter-spacing: -0.025em;
+      color: var(--forest);
+      margin: 0 0 20px;
+    }
+    .hero .lede {
+      font-size: clamp(1.05rem, 2vw, 1.22rem);
+      color: var(--muted);
+      max-width: 56ch;
+      margin: 0 0 30px;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 12px 26px;
+      border-radius: 14px;
+      font-weight: 650;
+      font-size: 1rem;
+      text-decoration: none;
+      border: 1.5px solid transparent;
+    }
+    .btn-primary { background: var(--teal); color: #fff; box-shadow: var(--shadow); }
+    .btn-primary:hover { background: var(--teal-dark); color: #fff; }
+    .deploy-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 0.93rem;
+      font-weight: 550;
+      padding: 10px 16px;
+      border: 1.5px dashed rgba(85, 100, 94, 0.4);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.55);
+    }
+    .deploy-note svg { flex: none; color: var(--sage); }
+    .hero-figure {
+      display: flex;
+      justify-content: center;
+    }
+    .hero-figure img {
+      width: min(340px, 78vw);
+      border-radius: 28%;
+      box-shadow: var(--shadow);
+      background: var(--card);
+      padding: 18px;
+    }
+
+    /* ---------- Sections ---------- */
+    section { padding: 64px 0; }
+    .section-head { max-width: 68ch; margin-bottom: 36px; }
+    .section-head h2 {
+      font-size: clamp(1.5rem, 3.4vw, 2.1rem);
+      letter-spacing: -0.02em;
+      color: var(--forest);
+      margin: 0 0 10px;
+    }
+    .section-head p { color: var(--muted); margin: 0; }
+    .kicker {
+      color: var(--teal);
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+
+    .band { background: var(--ivory-deep); border-block: 1px solid var(--line); }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    .grid.wide { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 26px 24px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 {
+      font-size: 1.08rem;
+      letter-spacing: -0.01em;
+      color: var(--forest);
+      margin: 14px 0 8px;
+    }
+    .card p { margin: 0; color: var(--muted); font-size: 0.97rem; }
+    .icon-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      background: var(--teal-soft);
+      color: var(--teal-dark);
+      flex: none;
+    }
+    .icon-badge svg { width: 24px; height: 24px; }
+    .icon-badge.terra { background: var(--terracotta-soft); color: var(--terracotta); }
+    .icon-badge.sage { background: var(--sage-soft); color: var(--forest); }
+
+    /* Workflow steps */
+    .steps {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      counter-reset: step;
+    }
+    .steps li {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 26px 24px 24px;
+      box-shadow: var(--shadow);
+      counter-increment: step;
+    }
+    .steps li::before {
+      content: counter(step);
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--forest);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 14px;
+    }
+    .steps h3 {
+      margin: 0 0 8px;
+      font-size: 1.08rem;
+      color: var(--forest);
+      letter-spacing: -0.01em;
+    }
+    .steps p { margin: 0; color: var(--muted); font-size: 0.97rem; }
+    .steps .arrow {
+      position: absolute;
+      right: -22px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--sage);
+      display: none;
+    }
+    @media (min-width: 1024px) {
+      .steps .arrow { display: block; }
+    }
+
+    /* Safety panel */
+    .safety-panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      overflow: hidden;
+    }
+    .safety-panel > div { padding: 30px 28px; }
+    .safety-panel .privacy h3,
+    .safety-panel .clinical h3 {
+      margin: 14px 0 12px;
+      font-size: 1.12rem;
+      color: var(--forest);
+      letter-spacing: -0.01em;
+    }
+    .safety-panel ul { margin: 0; padding: 0; list-style: none; }
+    .safety-panel li {
+      position: relative;
+      padding-left: 26px;
+      margin: 0 0 11px;
+      color: var(--muted);
+      font-size: 0.97rem;
+    }
+    .safety-panel li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--sage-soft);
+      border: 1.5px solid var(--sage);
+    }
+    .safety-panel .clinical { background: var(--ivory-deep); }
+    .safety-panel .clinical li::before {
+      background: var(--terracotta-soft);
+      border-color: var(--terracotta);
+    }
+    .emergency-note {
+      margin: 14px 0 0;
+      padding: 13px 16px;
+      border-radius: 12px;
+      background: var(--terracotta-soft);
+      border: 1px solid rgba(185, 92, 61, 0.35);
+      color: #7C3A22;
+      font-size: 0.93rem;
+      font-weight: 600;
+    }
+
+    /* CTA */
+    .cta-card {
+      background: var(--forest);
+      color: #fff;
+      border-radius: 22px;
+      padding: 52px 32px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .cta-card h2 {
+      font-size: clamp(1.5rem, 3.4vw, 2.05rem);
+      letter-spacing: -0.02em;
+      margin: 0 0 12px;
+    }
+    .cta-card p {
+      color: rgba(255, 255, 255, 0.82);
+      max-width: 60ch;
+      margin: 0 auto 28px;
+    }
+    .cta-card .btn-primary { background: #fff; color: var(--forest); }
+    .cta-card .btn-primary:hover { background: var(--teal-soft); color: var(--forest); }
+    .cta-card .deploy-note {
+      color: rgba(255, 255, 255, 0.85);
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .cta-card .deploy-note svg { color: var(--sage); }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--line);
+      background: var(--ivory-deep);
+      padding: 44px 0 52px;
+      margin-top: 40px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 36px;
+      align-items: start;
+    }
+    .notice {
+      font-size: 0.9rem;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .notice strong { color: var(--forest); }
+    .footer-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 22px;
+      align-items: center;
+      justify-content: flex-end;
+      font-size: 0.93rem;
+      color: var(--muted);
+    }
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--forest);
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+    .footer-brand img { width: 30px; height: 30px; border-radius: 8px; }
+
+    /* Reveal motion (JS-enhanced; content is visible without JS) */
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    .no-js .reveal { opacity: 1; transform: none; }
+
+    @media (max-width: 900px) {
+      .hero { padding: 56px 0 48px; }
+      .hero .wrap { grid-template-columns: 1fr; gap: 40px; }
+      .hero-figure { order: -1; }
+      .hero-figure img { width: min(220px, 56vw); }
+      .footer-grid { grid-template-columns: 1fr; }
+      .footer-meta { justify-content: flex-start; }
+      section { padding: 48px 0; }
+    }
+
+    @media (max-width: 400px) {
+      body { font-size: 16px; }
+      .wrap { padding: 0 18px; }
+      .hero-actions .deploy-note { width: 100%; }
+      .btn { width: 100%; justify-content: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal { opacity: 1; transform: none; transition: none; }
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body class="no-js">
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="./index.html" aria-label="Healthfolio home">
+        <img src="./assets/logo.png" alt="Healthfolio logo" width="38" height="38" />
+        <span class="name">Healthfolio</span>
+      </a>
+      <a class="header-cta" href="https://github.com/emperor1008/HEALTHFOLIO">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>
+        View source code
+      </a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- 1. Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap">
+        <div>
+          <p class="eyebrow"><span class="dot" aria-hidden="true"></span> Offline-first &middot; Multilingual &middot; Rural care</p>
+          <h1 id="hero-title">Care should not depend on a&nbsp;strong&nbsp;signal.</h1>
+          <p class="lede">
+            Healthfolio is an offline-first, multilingual rural-care coordination platform.
+            Patient information is saved locally during connectivity loss and synchronized
+            safely after the network returns — so a dropped signal never becomes a dropped
+            conversation about someone's health.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="https://github.com/emperor1008/HEALTHFOLIO">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.75 2.69 1.25 3.35.95.1-.74.4-1.25.72-1.53-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.16 1.18a11 11 0 0 1 5.76 0c2.19-1.49 3.16-1.18 3.16-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14v3.17c0 .3.2.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+              View source code
+            </a>
+            <span class="deploy-note">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Secure application deployment is being prepared
+            </span>
+          </div>
+        </div>
+        <div class="hero-figure">
+          <img src="./assets/logo.png" alt="The Healthfolio mark: a rounded teal emblem representing organized personal health records" width="340" height="340" />
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Problem -->
+    <section class="band" aria-labelledby="problem-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="kicker">The problem</p>
+          <h2 id="problem-title">Distance is hard. A weak network makes it harder.</h2>
+          <p>In rural areas, the hardest part of healthcare is often not the medicine or the advice — it is everything that has to happen before and between visits.</p>
+        </div>
+        <div class="grid">
+          <div class="card reveal">
+            <div class="icon-badge terra">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>
+            </div>
+            <h3>Long, costly travel</h3>
+            <p>A routine doubt about a report or a medicine can mean a full day of travel to a facility — just to ask one question.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge terra">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+            </div>
+            <h3>Missed consultations</h3>
+            <p>When every step depends on being physically present, follow-up care is easy to postpone — and hard to resume.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge terra">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9.5c3-3 7-3 10 0s7 3 10 0"/><path d="M2 14.5c3-3 7-3 10 0s7 3 10 0" opacity="0.55"/></svg>
+            </div>
+            <h3>Patchy networks</h3>
+            <p>Connectivity drops without warning. Apps that assume a constant connection simply stop working when they are needed most.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge terra">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="12" rx="2.5"/><path d="M9 8V6.5A3 3 0 0 1 15 6.5V8"/><path d="M12 12v4M10 14h4"/></svg>
+            </div>
+            <h3>Medicine uncertainty</h3>
+            <p>Without a way to check availability, patients travel to pharmacies on chance — sometimes arriving after a medicine has run out.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Workflow -->
+    <section aria-labelledby="workflow-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="kicker">How it works</p>
+          <h2 id="workflow-title">Built for the way connectivity really behaves</h2>
+          <p>Healthfolio treats the network as an unreliable guest — never as a requirement for keeping a record safe.</p>
+        </div>
+        <ol class="steps">
+          <li class="reveal">
+            <h3>Save offline</h3>
+            <p>Records and care requests are saved on the device first, even with no signal. Nothing is lost while you are offline.</p>
+            <span class="arrow" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
+          </li>
+          <li class="reveal">
+            <h3>Sync safely</h3>
+            <p>When the network returns, saved work is synchronized automatically — once, securely, and in order. Idempotency keys prevent duplicates.</p>
+            <span class="arrow" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
+          </li>
+          <li class="reveal">
+            <h3>Route care</h3>
+            <p>A deterministic safety check helps route each request by urgency. Emergency guidance is never delayed by coordination steps.</p>
+            <span class="arrow" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
+          </li>
+          <li class="reveal">
+            <h3>Coordinate follow-up</h3>
+            <p>Clinicians, coordinators, and pharmacies see only what their role permits — assigned requests, consent-shared records, and timestamped availability.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 4. Roles -->
+    <section class="band" aria-labelledby="roles-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="kicker">Roles</p>
+          <h2 id="roles-title">One platform, four kinds of careful access</h2>
+          <p>Every role is verified and assigned server-side. Each person sees exactly what their role permits — and nothing more.</p>
+        </div>
+        <div class="grid wide">
+          <div class="card reveal">
+            <div class="icon-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.2-3.2 4-5 7.5-5s6.3 1.8 7.5 5"/></svg>
+            </div>
+            <h3>Patient</h3>
+            <p>Organizes records securely, submits safe care requests, and follows each request's status — even across network dropouts. Personal health information stays private by default.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M8.5 5h7"/><path d="M6 11h12v3a6 6 0 0 1-12 0v-3Z"/><path d="M6.5 12.5H4.8a2.3 2.3 0 1 0 2.4 3.4M17.5 12.5h1.7a2.3 2.3 0 1 1-2.4 3.4"/></svg>
+            </div>
+            <h3>Doctor</h3>
+            <p>Uses verified, role-based access and views only assigned or consent-shared records. Sets availability honestly, so patients see real options — never invented ones.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V10l7-6 7 6v11"/><path d="M9.5 21v-5h5v5"/></svg>
+            </div>
+            <h3>Administrator</h3>
+            <p>Manages facilities, verified clinician roles, and operational configuration for their region — without access to patient records or consultations.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h16l-1.5 12h-13L4 8Z"/><path d="M8.5 11V7a3.5 3.5 0 0 1 7 0v4"/></svg>
+            </div>
+            <h3>Pharmacist</h3>
+            <p>Provides timestamped medicine-availability updates from a real, verified pharmacy account — so patients know before they travel.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Capabilities -->
+    <section aria-labelledby="capabilities-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="kicker">Core capabilities</p>
+          <h2 id="capabilities-title">Designed for low bandwidth and high trust</h2>
+          <p>Each capability exists to keep care moving when the network — or the nearest facility — is far away.</p>
+        </div>
+        <div class="grid wide">
+          <div class="card reveal">
+            <div class="icon-badge sage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>
+            </div>
+            <h3>Offline queue</h3>
+            <p>On-device persistence with idempotency keys and bounded, exponential retry. Queue items survive refreshes and restarts, and synchronize exactly once.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge sage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17M3.5 15h17M12 3c2.5 2.6 3.8 5.6 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></svg>
+            </div>
+            <h3>Multilingual accessibility</h3>
+            <p>English, Hindi, and Odia interfaces with graceful fallback to English — designed for small screens, low literacy, and 44-pixel touch targets.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge sage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6l7-3Z"/><path d="M9 12l2 2 4-4.5"/></svg>
+            </div>
+            <h3>Safe triage</h3>
+            <p>Deterministic urgency routing with clear escalation guidance. It supports decisions — it never diagnoses, prescribes, or replaces a clinician.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge sage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/><circle cx="12" cy="15" r="1.6"/></svg>
+            </div>
+            <h3>Secure records</h3>
+            <p>Private storage, consent-scoped sharing, short-lived signed URLs, and row-level security enforced in the database — not just the interface.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge sage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="13" rx="2.5"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+            <h3>Care coordination</h3>
+            <p>A validated state machine carries each request from draft to consultation. Every transition is checked and audited on the server.</p>
+          </div>
+          <div class="card reveal">
+            <div class="icon-badge sage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/><path d="M12 3v2" opacity="0.6"/></svg>
+            </div>
+            <h3>Pharmacy freshness</h3>
+            <p>Availability is only ever what a pharmacist last confirmed, shown with an honest freshness label — never presented as a real-time claim.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Privacy & clinical safety -->
+    <section class="band" aria-labelledby="safety-title">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="kicker">Privacy &amp; clinical safety</p>
+          <h2 id="safety-title">Private by design, honest by default</h2>
+          <p>Healthfolio is built for situations where trust matters more than features. Two commitments shape every screen.</p>
+        </div>
+        <div class="safety-panel reveal">
+          <div class="privacy">
+            <div class="icon-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6l7-3Z"/></svg>
+            </div>
+            <h3>Privacy</h3>
+            <ul>
+              <li>Patient records are private by default; sharing happens only through explicit, revocable consent.</li>
+              <li>Roles are assigned server-side and enforced in the database and on every server route.</li>
+              <li>Pharmacy staff never see patient records, diagnoses, or triage details — only non-sensitive availability requests.</li>
+              <li>Status labels are truthful: nothing is shown as delivered, confirmed, or available until the system itself confirms it.</li>
+            </ul>
+          </div>
+          <div class="clinical">
+            <div class="icon-badge terra">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M7 9v6M17 9v6M4.5 11v2M19.5 11v2" opacity="0.9"/><path d="M12 4v16"/></svg>
+            </div>
+            <h3>Clinical safety</h3>
+            <ul>
+              <li>The triage experience supports urgency routing. It does not diagnose, prescribe, calculate doses, or recommend medicines.</li>
+              <li>Emergency guidance is shown immediately and is never delayed by coordination or matching steps.</li>
+              <li>Availability information is timestamped and attributed — never presented as real-time inventory.</li>
+              <li>Healthfolio complements care; it does not replace a clinician, a pharmacy, or emergency services.</li>
+            </ul>
+            <p class="emergency-note">In an emergency, contact your local emergency services immediately.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Source code CTA -->
+    <section aria-labelledby="cta-title">
+      <div class="wrap">
+        <div class="cta-card reveal">
+          <h2 id="cta-title">Open, auditable, and self-hostable</h2>
+          <p>Healthfolio's source code is public. Review the architecture, run it yourself, or deploy it for a region you serve. This page is a showcase — the secure, server-backed application is deployed separately.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://github.com/emperor1008/HEALTHFOLIO">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.75 2.69 1.25 3.35.95.1-.74.4-1.25.72-1.53-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.16 1.18a11 11 0 0 1 5.76 0c2.19-1.49 3.16-1.18 3.16-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14v3.17c0 .3.2.66.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+              View source code
+            </a>
+            <span class="deploy-note">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+              Secure application deployment is being prepared
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 8. Footer -->
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div>
+          <p class="footer-brand">
+            <img src="./assets/logo.png" alt="" width="30" height="30" />
+            Healthfolio
+          </p>
+          <p class="notice">
+            <strong>Medical-safety &amp; privacy notice.</strong>
+            Healthfolio is a coordination tool, not a medical device. It does not diagnose,
+            prescribe, or calculate doses, and it does not replace emergency services or
+            professional care. Patient records remain private by default; sharing requires
+            explicit consent. This website describes the platform's design only — it contains
+            no patient, clinician, facility, or pharmacy data.
+          </p>
+        </div>
+        <div class="footer-meta">
+          <span>&copy; 2026 Healthfolio &middot; MIT License</span>
+          <a href="https://github.com/emperor1008/HEALTHFOLIO">Source code on GitHub</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Restrained reveal motion. Progressive enhancement only: content is fully
+    // visible without JavaScript and whenever reduced motion is preferred.
+    document.body.classList.remove("no-js");
+    (function () {
+      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var items = document.querySelectorAll(".reveal");
+      if (reduce || !("IntersectionObserver" in window)) {
+        items.forEach(function (el) { el.classList.add("in"); });
+        return;
+      }
+      var io = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("in");
+              io.unobserve(entry.target);
+            }
+          });
+        },
+        { rootMargin: "0px 0px -8% 0px", threshold: 0.08 }
+      );
+      items.forEach(function (el) { io.observe(el); });
+    })();
+  </script>
+</body>
+</html>

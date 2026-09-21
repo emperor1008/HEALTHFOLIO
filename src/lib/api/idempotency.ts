@@ -20,7 +20,7 @@ export async function lookupIdempotentResponse<T>(
   key: string | null
 ): Promise<IdempotentResult<T> | null> {
   if (!key) return null;
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin
     .from("idempotency_keys")
     .select("response_status, response_body")
@@ -46,7 +46,7 @@ export async function storeIdempotentResponse(
   body: unknown
 ): Promise<void> {
   if (!key) return;
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { error } = await admin.from("idempotency_keys").insert({
     user_id: userId,
     endpoint: endpoint,
