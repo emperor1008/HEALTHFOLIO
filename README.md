@@ -4,7 +4,7 @@
 
 An intelligent personal health-record platform that securely organizes medical documents, extracts verifiable information, tracks health trends, and helps users prepare for informed healthcare conversations.
 
-**Live showcase:** https://emperor1008.github.io/HEALTHFOLIO/ (static public site — see [Public Showcase](#public-showcase))
+
 
 ---
 
