@@ -26,13 +26,21 @@ let auditInserts: Array<{ table: string; row: Row }> = [];
 function makeAdmin() {
   function chainFor(table: string) {
     const state = (tables[table] ??= { rows: [] });
+    // eq() filters are honored so tests exercise real query semantics
+    // (e.g. status = 'active' gates in role resolution).
+    const filters: Array<[string, unknown]> = [];
+    const applyFilters = (rows: Row[]) =>
+      rows.filter((r) => filters.every(([col, val]) => r[col] === val));
     const chain: Record<string, unknown> = {
       select: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
       upsert: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
+      eq: vi.fn((col: string, val: unknown) => {
+        filters.push([col, val]);
+        return chain;
+      }),
       in: vi.fn().mockReturnThis(),
       is: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
@@ -41,18 +49,18 @@ function makeAdmin() {
         if (state.failWith) {
           return { data: null, error: { code: state.failWith.code, message: "internal pg error XYZ" } };
         }
-        return { data: state.rows[0] ?? null, error: null };
+        return { data: applyFilters(state.rows)[0] ?? null, error: null };
       }),
       maybeSingle: vi.fn(async (): Promise<DbResult> => {
         if (state.failWith) {
           return { data: null, error: { code: state.failWith.code, message: "internal pg error XYZ" } };
         }
-        return { data: state.rows[0] ?? null, error: null };
+        return { data: applyFilters(state.rows)[0] ?? null, error: null };
       }),
       then: undefined as unknown,
     };
     (chain as { then: unknown }).then = (resolve: (v: { data: Row[]; error: null }) => void) => {
-      resolve({ data: state.rows, error: null });
+      resolve({ data: applyFilters(state.rows), error: null });
     };
     // capture inserts for audit assertions
     chain.insert = vi.fn((row: Row) => {
@@ -94,7 +102,7 @@ function jsonReq(url: string, body: unknown, headers: Record<string, string> = {
   });
 }
 
-const ROUTE_PARAMS = { id: "appt-1" };
+const ROUTE_PARAMS = Promise.resolve({ id: "appt-1" });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -102,35 +110,91 @@ beforeEach(() => {
   auditInserts = [];
   staffIdentity.current = null;
   admin = makeAdmin();
-  process.env.STAFF_ROLE_ADMIN_KEY = "test-admin-key";
 });
 
-describe("staff role assignment guard", () => {
-  it("rejects without the admin key even for an authenticated user", async () => {
-    getUserMock.mockResolvedValue({ id: "u1", email: "" });
-    const { POST } = await import("@/app/api/staff/roles/route");
+describe("platform-admin staff management", () => {
+  it("rejects an unauthenticated caller without leaking details", async () => {
+    getUserMock.mockResolvedValue(null);
+    const { GET } = await import("@/app/api/staff/admin/roles/route");
+    const res = await GET();
+    expect(res.status).toBe(401);
+  });
+
+  it("a patient session can never assign any role, even platform_admin", async () => {
+    getUserMock.mockResolvedValue({ id: "patient-1", email: "" });
+    const { POST } = await import("@/app/api/staff/admin/roles/route");
     const res = await POST(
-      jsonReq("http://localhost/api/staff/roles", {
+      jsonReq("http://localhost/api/staff/admin/roles", {
         user_id: "11111111-1111-4111-8111-111111111111",
-        facility_id: "22222222-2222-4222-8222-222222222222",
-        role: "clinician",
+        role: "platform_admin",
       })
     );
     expect(res.status).toBe(403);
     expect((await res.json()).code).toBe("STAFF_ACCESS_NOT_CONFIGURED");
   });
 
-  it("rejects a wrong key and never accepts role from a plain client body", async () => {
-    getUserMock.mockResolvedValue({ id: "u1", email: "" });
-    const { POST } = await import("@/app/api/staff/roles/route");
+  it("a suspended platform_admin loses access immediately", async () => {
+    getUserMock.mockResolvedValue({ id: "admin-1", email: "" });
+    tables.user_roles = {
+      rows: [{ user_id: "admin-1", role: "platform_admin", status: "suspended" }],
+    };
+    const { POST } = await import("@/app/api/staff/admin/roles/route");
     const res = await POST(
-      jsonReq(
-        "http://localhost/api/staff/roles",
-        { user_id: "11111111-1111-4111-8111-111111111111", facility_id: "22222222-2222-4222-8222-222222222222", role: "clinician" },
-        { "x-staff-admin-key": "wrong" }
-      )
+      jsonReq("http://localhost/api/staff/admin/roles", {
+        user_id: "11111111-1111-4111-8111-111111111111",
+        role: "clinician",
+        scope_id: "22222222-2222-4222-8222-222222222222",
+      })
     );
     expect(res.status).toBe(403);
+  });
+
+  it("an active platform_admin can assign and is idempotent on re-assign", async () => {
+    getUserMock.mockResolvedValue({ id: "admin-1", email: "" });
+    tables.user_roles = {
+      rows: [{ user_id: "admin-1", role: "platform_admin", status: "active" }],
+    };
+    const { POST } = await import("@/app/api/staff/admin/roles/route");
+    const body = {
+      user_id: "11111111-1111-4111-8111-111111111111",
+      role: "clinician",
+      scope_id: "22222222-2222-4222-8222-222222222222",
+    };
+    const res1 = await POST(jsonReq("http://localhost/api/staff/admin/roles", body));
+    const res2 = await POST(jsonReq("http://localhost/api/staff/admin/roles", body));
+    expect(res1.status).toBe(201);
+    expect(res2.status).toBe(201);
+    // Idempotency is guaranteed by the registry's UNIQUE (user_id, role)
+    // constraint + upsert; each accepted call appends exactly one audit row.
+    expect(auditInserts.filter((a) => a.table === "staff_admin_audit_events").length).toBe(2);
+  });
+
+  it("scoped roles require a scope id", async () => {
+    getUserMock.mockResolvedValue({ id: "admin-1", email: "" });
+    tables.user_roles = {
+      rows: [{ user_id: "admin-1", role: "platform_admin", status: "active" }],
+    };
+    const { POST } = await import("@/app/api/staff/admin/roles/route");
+    const res = await POST(
+      jsonReq("http://localhost/api/staff/admin/roles", {
+        user_id: "11111111-1111-4111-8111-111111111111",
+        role: "pharmacy_operator",
+      })
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("SCOPE_REQUIRED");
+  });
+
+  it("rejects malformed payloads", async () => {
+    getUserMock.mockResolvedValue({ id: "admin-1", email: "" });
+    tables.user_roles = {
+      rows: [{ user_id: "admin-1", role: "platform_admin", status: "active" }],
+    };
+    const { POST } = await import("@/app/api/staff/admin/roles/route");
+    const res = await POST(
+      jsonReq("http://localhost/api/staff/admin/roles", { user_id: "not-a-uuid", role: "clinician" })
+    );
+    expect(res.status).toBe(400);
   });
 });
 
@@ -213,7 +277,7 @@ describe("assignment endpoint authorization", () => {
       jsonReq("http://localhost/api/care-requests/cr-1/assign", {
         clinician_profile_id: "33333333-3333-4333-8333-333333333333",
       }),
-      { params: { id: "cr-1" } }
+      { params: Promise.resolve({ id: "cr-1" }) }
     );
     expect(res.status).toBe(403);
     expect((await res.json()).code).toBe("STAFF_ACCESS_NOT_CONFIGURED");
@@ -229,7 +293,7 @@ describe("assignment endpoint authorization", () => {
       jsonReq("http://localhost/api/care-requests/cr-2/assign", {
         clinician_profile_id: "33333333-3333-4333-8333-333333333333",
       }),
-      { params: { id: "cr-2" } }
+      { params: Promise.resolve({ id: "cr-2" }) }
     );
     expect(res.status).toBe(409);
     expect((await res.json()).code).toBe("EMERGENCY_NOT_ROUTABLE");

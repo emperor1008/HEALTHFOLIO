@@ -12,7 +12,7 @@
 import { describe, it, expect } from "vitest";
 import { deriveJourney, currentJourneyStep, type JourneyInputs } from "@/lib/journey/status";
 import { validateMetric, METRIC_EVENTS } from "@/lib/metrics/events";
-import { RESILIENCE_PROFILES, readResilienceProfile } from "@/lib/dev/network-resilience";
+import { RESILIENCE_PROFILES, readResilienceProfile } from "@tests/support/network-resilience";
 import { UNCONFIGURED_REGION, validateRegionConfig } from "@/lib/region/config";
 import type { QueueItem } from "@/lib/offline/types";
 

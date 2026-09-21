@@ -23,7 +23,7 @@ export default function UpdatePasswordPage() {
   useEffect(() => {
     async function handleRecovery() {
       try {
-        const supabase = createClient();
+        const supabase = await createClient();
 
         // Supabase sends a hash fragment with access_token and refresh_token
         // for password recovery. The SSR client needs to exchange this.
@@ -93,7 +93,7 @@ export default function UpdatePasswordPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { error: updateError } = await supabase.auth.updateUser({
         password,
       });

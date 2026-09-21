@@ -82,6 +82,30 @@ export interface Part3Dict {
 
   staffNotConfigured: string;
   staffNotConfiguredHint: string;
+
+  // Platform-admin staff console (secure role management)
+  adminConsoleTitle: string;
+  adminConsoleSubtitle: string;
+  adminNoAccess: string;
+  adminNoAccessHint: string;
+  adminRolesHeading: string;
+  adminAssignHeading: string;
+  adminAssignUserId: string;
+  adminAssignRole: string;
+  adminAssignScope: string;
+  adminAssignScopeHint: string;
+  adminAssignSubmit: string;
+  adminRoleUser: string;
+  adminRoleStatus: string;
+  adminActionSuspend: string;
+  adminActionReinstate: string;
+  adminActionRevoke: string;
+  adminConfirmRevoke: string;
+  adminEmpty: string;
+  adminAuditHeading: string;
+  adminAuditEmpty: string;
+  adminSaved: string;
+
   availabilityControls: string;
   assignedQueue: string;
   unassignedQueue: string;
@@ -169,6 +193,30 @@ const en: Part3Dict = {
   staffNotConfigured: "Staff access is not configured",
   staffNotConfiguredHint:
     "This view is for participating clinicians and facility coordinators. No staff account is configured on this device.",
+
+  adminConsoleTitle: "Staff administration",
+  adminConsoleSubtitle:
+    "Assign and manage staff roles. Every action is authorized on the server and recorded in the audit history.",
+  adminNoAccess: "Platform administrator access is not configured for this account",
+  adminNoAccessHint:
+    "Roles can only be managed by an existing platform administrator. Ask your deployment administrator to provision access with the local staff bootstrap command.",
+  adminRolesHeading: "Current staff roles",
+  adminAssignHeading: "Assign a role to an existing user",
+  adminAssignUserId: "User ID (UUID)",
+  adminAssignRole: "Role",
+  adminAssignScope: "Facility or pharmacy ID",
+  adminAssignScopeHint: "Required for clinician, coordinator, and pharmacy roles.",
+  adminAssignSubmit: "Assign role",
+  adminRoleUser: "User",
+  adminRoleStatus: "Status",
+  adminActionSuspend: "Suspend",
+  adminActionReinstate: "Reinstate",
+  adminActionRevoke: "Revoke",
+  adminConfirmRevoke: "Revoke this role? The person loses staff access immediately.",
+  adminEmpty: "No staff roles have been assigned yet.",
+  adminAuditHeading: "Recent administrative actions",
+  adminAuditEmpty: "No administrative actions recorded yet.",
+  adminSaved: "Role updated.",
   availabilityControls: "My availability",
   assignedQueue: "Assigned care requests",
   unassignedQueue: "Unassigned requests",
@@ -254,6 +302,30 @@ const hi: Part3Dict = {
     "सीधा ऑडियो/वीडियो अभी उपलब्ध नहीं है। सुरक्षित लिखित संदेश पूरी तरह उपलब्ध हैं।",
 
   staffNotConfigured: "स्टाफ एक्सेस कॉन्फ़िगर नहीं है",
+
+  adminConsoleTitle: "स्टाफ प्रशासन",
+  adminConsoleSubtitle:
+    "स्टाफ भूमिकाएँ नियत करें और प्रबंधित करें। हर कार्य सर्वर पर अधिकृत होता है और ऑडिट इतिहास में दर्ज होता है।",
+  adminNoAccess: "इस खाते के लिए प्लेटफ़ॉर्म प्रशासक एक्सेस कॉन्फ़िगर नहीं है",
+  adminNoAccessHint:
+    "भूमिकाएँ केवल मौजूदा प्लेटफ़ॉर्म प्रशासक ही प्रबंधित कर सकते हैं। एक्सेस देने के लिए अपने प्रशासक से स्थानीय स्टाफ बूटस्ट्रैप कमांड चलाने को कहें।",
+  adminRolesHeading: "वर्तमान स्टाफ भूमिकाएँ",
+  adminAssignHeading: "किसी मौजूदा उपयोगकर्ता को भूमिका नियत करें",
+  adminAssignUserId: "उपयोगकर्ता आईडी (UUID)",
+  adminAssignRole: "भूमिका",
+  adminAssignScope: "सुविधा या फार्मेसी आईडी",
+  adminAssignScopeHint: "क्लिनिशियन, कोऑर्डिनेटर और फार्मेसी भूमिकाओं के लिए आवश्यक।",
+  adminAssignSubmit: "भूमिका नियत करें",
+  adminRoleUser: "उपयोगकर्ता",
+  adminRoleStatus: "स्थिति",
+  adminActionSuspend: "निलंबित करें",
+  adminActionReinstate: "पुनः बहाल करें",
+  adminActionRevoke: "रद्द करें",
+  adminConfirmRevoke: "क्या यह भूमिका रद्द करनी है? व्यक्ति का स्टाफ एक्सेस तुरंत समाप्त हो जाएगा।",
+  adminEmpty: "अभी कोई स्टाफ भूमिका नियत नहीं की गई है।",
+  adminAuditHeading: "हाल के प्रशासनिक कार्य",
+  adminAuditEmpty: "अभी कोई प्रशासनिक कार्य दर्ज नहीं है।",
+  adminSaved: "भूमिका अपडेट हो गई।",
   staffNotConfiguredHint:
     "यह दृश्य सहभागी चिकित्सकों और सुविधा समन्वयकों के लिए है। इस डिवाइस पर कोई स्टाफ खाता कॉन्फ़िगर नहीं है।",
   availabilityControls: "मेरी उपलब्धता",
@@ -341,6 +413,30 @@ const or: Part3Dict = {
     "ସିଧା ଅଡିଓ/ଭିଡିଓ ଏବେ ଉପଲବ୍ଧ ନାହିଁ। ସୁରକ୍ଷିତ ଲେଖା ସନ୍ଦେଶ ପୂର୍ଣ୍ଣ ଭାବରେ ଉପଲବ୍ଧ।",
 
   staffNotConfigured: "ଷ୍ଟାଫ୍ ଆକ୍ସେସ୍ କନଫିଗର ହୋଇନାହିଁ",
+
+  adminConsoleTitle: "ଷ୍ଟାଫ୍ ପ୍ରଶାସନ",
+  adminConsoleSubtitle:
+    "ଷ୍ଟାଫ୍ ଭୂମିକା ନିୟୋଜନ ଓ ପରିଚାଳନା କରନ୍ତୁ। ପ୍ରତ୍ୟେକ କାର୍ଯ୍ୟ ସର୍ଭରରେ ଅନୁମୋଦିତ ଏବଂ ଅଡିଟ୍ ଇତିହାସରେ ଲିପିବଦ୍ଧ।",
+  adminNoAccess: "ଏହି ଖାତା ପାଇଁ ପ୍ଲାଟଫର୍ମ ପ୍ରଶାସକ ଆକ୍ସେସ୍ କନଫିଗର ହୋଇନାହିଁ",
+  adminNoAccessHint:
+    "ଭୂମିକା କେବଳ ମୌଜୁଦା ପ୍ଲାଟଫର୍ମ ପ୍ରଶାସକ ପରିଚାଳନା କରିପାରିବେ। ଆକ୍ସେସ୍ ଦେବା ପାଇଁ ନିଜ ପ୍ରଶାସକଙ୍କୁ ସ୍ଥାନୀୟ ଷ୍ଟାଫ୍ ବୁଟଷ୍ଟ୍ରାପ୍ କମାଣ୍ଡ ଚଲାଇବାକୁ କୁହନ୍ତୁ।",
+  adminRolesHeading: "ବର୍ତ୍ତମାନ ଷ୍ଟାଫ୍ ଭୂମିକା",
+  adminAssignHeading: "ମୌଜୁଦା ଉପଯୋଗକର୍ତ୍ତାଙ୍କୁ ଭୂମିକା ନିୟୋଜନ କରନ୍ତୁ",
+  adminAssignUserId: "ଉପଯୋଗକର୍ତ୍ତା ଆଇଡି (UUID)",
+  adminAssignRole: "ଭୂମିକା",
+  adminAssignScope: "ସୁବିଧା ବା ଫାର୍ମାସି ଆଇଡି",
+  adminAssignScopeHint: "କ୍ଲିନିସିୟନ୍, ସମନ୍ୱୟକାରୀ ଓ ଫାର୍ମାସି ଭୂମିକା ପାଇଁ ଆବଶ୍ୟକ।",
+  adminAssignSubmit: "ଭୂମିକା ନିୟୋଜନ କରନ୍ତୁ",
+  adminRoleUser: "ଉପଯୋଗକର୍ତ୍ତା",
+  adminRoleStatus: "ସ୍ଥିତି",
+  adminActionSuspend: "ସାମୟିକ ବନ୍ଦ",
+  adminActionReinstate: "ପୁନଃସ୍ଥାପନ",
+  adminActionRevoke: "ବାତିଲ",
+  adminConfirmRevoke: "ଏହି ଭୂମିକା ବାତିଲ କରିବେ? ବ୍ୟକ୍ତିଙ୍କ ଷ୍ଟାଫ୍ ଆକ୍ସେସ୍ ତୁରନ୍ତ ବନ୍ଦ ହୋଇଯିବ।",
+  adminEmpty: "ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ଷ୍ଟାଫ୍ ଭୂମିକା ନିୟୋଜିତ ହୋଇନାହିଁ।",
+  adminAuditHeading: "ସାମ୍ପ୍ରତିକ ପ୍ରଶାସନିକ କାର୍ଯ୍ୟ",
+  adminAuditEmpty: "ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ପ୍ରଶାସନିକ କାର୍ଯ୍ୟ ଲିପିବଦ୍ଧ ନାହିଁ।",
+  adminSaved: "ଭୂମିକା ଅପଡେଟ୍ ହୋଇଗଲା।",
   staffNotConfiguredHint:
     "ଏହି ଦୃଶ୍ୟ ସହଭାଗୀ ଡାକ୍ତର ଓ ସୁବିଧା ସମନ୍ୱୟକଙ୍କ ପାଇଁ। ଏହି ଡିଭାଇସରେ କୌଣସି ଷ୍ଟାଫ୍ ଖାତା ନାହିଁ।",
   availabilityControls: "ମୋର ଉପଲବ୍ଧତା",

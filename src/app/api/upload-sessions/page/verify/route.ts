@@ -14,7 +14,7 @@ const verifySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { sessionId, pageId, storagePath } = parsed.data;
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // Verify session ownership
   const { data: session } = await admin

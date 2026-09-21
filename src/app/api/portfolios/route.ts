@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Check for existing portfolio first
     const { data: existing, error: fetchError } = await supabase

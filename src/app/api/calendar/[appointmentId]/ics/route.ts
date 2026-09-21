@@ -6,7 +6,7 @@ import { createEvents } from "ics";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { appointmentId: string } }
+  { params }: { params: Promise<{ appointmentId: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -20,8 +20,8 @@ export async function GET(
       );
     }
 
-    const appointmentId = params.appointmentId;
-    const admin = createAdminClient();
+    const appointmentId = (await params).appointmentId;
+    const admin = await createAdminClient();
 
     // Verify appointment ownership
     const { data: appointment, error: apptError } = await admin

@@ -32,7 +32,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { error: updateError } = await admin
     .from("profiles")
     .update(parsed.data)

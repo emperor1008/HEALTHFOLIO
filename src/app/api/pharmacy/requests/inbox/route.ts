@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // All requests for pharmacies this user is a member of; patients and other
   // pharmacies' data are unreachable (membership check + RLS).

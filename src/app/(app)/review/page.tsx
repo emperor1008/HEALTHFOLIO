@@ -70,7 +70,7 @@ export default function ReviewPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -109,7 +109,7 @@ export default function ReviewPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { goal, appointment, documentIds } = parsed.data;
-    const admin = createClient();
+    const admin = await createClient();
     // No PII logging — user ids and document selections stay out of logs.
 
     // Get portfolio

@@ -25,7 +25,7 @@ const pageIntentSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     qualityStatus, qualityMetrics,
   } = parsed.data;
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // Verify session ownership and status
   const { data: session } = await admin

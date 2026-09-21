@@ -36,7 +36,9 @@ export function SyncStatus() {
 
   const { online, syncing, pendingCount, failedCount, items } = sync;
 
-  // Region: derive display state.
+  // Region: derive display state. When everything is healthy and
+  // synchronized we render NOTHING — a polished app stays quiet unless
+  // there is something the user needs to know.
   const state = failedCount > 0
     ? "needs_attention"
     : syncing
@@ -49,6 +51,8 @@ export function SyncStatus() {
           ? "offline_pending"
           : "all_synced";
 
+  if (state === "all_synced") return null;
+
   const waitingText =
     pendingCount === 1
       ? t("oneItemWaiting")
@@ -56,28 +60,24 @@ export function SyncStatus() {
   const failedText =
     failedCount === 1 ? t("oneItemFailed") : t("itemsFailed", { count: failedCount });
 
-  const cardStyles: Record<typeof state, string> = {
-    all_synced: "bg-[#EAF2ED] text-[#1E4D45] border-[#1E4D45]/15",
+  const cardStyles: Record<Exclude<typeof state, "all_synced">, string> = {
     offline_pending: "bg-[#FBF3E8] text-[#7A5A2E] border-[#7A5A2E]/20",
     syncing: "bg-[#EAF2ED] text-[#1E4D45] border-[#1E4D45]/15",
     needs_attention: "bg-[#F7E9E4] text-[#8A4B32] border-[#8A4B32]/20",
   };
-  const dotStyles: Record<typeof state, string> = {
-    all_synced: "bg-[#2E7D5B]",
+  const dotStyles: Record<Exclude<typeof state, "all_synced">, string> = {
     offline_pending: "bg-[#C99A3F]",
     syncing: "bg-[#2E7D5B] animate-pulse",
     needs_attention: "bg-[#B45A38]",
   };
 
   const titleText = {
-    all_synced: t("syncStateAllSynced"),
     offline_pending: t("syncStateOfflinePending"),
     syncing: t("syncStateSyncing"),
     needs_attention: t("syncStateNeedsAttention"),
   }[state];
 
   const hintText = {
-    all_synced: t("syncStateAllSyncedHint"),
     offline_pending: t("syncStateOfflinePendingHint"),
     syncing: t("syncStateSyncingHint"),
     needs_attention: t("syncStateNeedsAttentionHint"),
@@ -201,9 +201,7 @@ export function SyncStatus() {
           ? t("syncStartedAnnouncement")
           : state === "needs_attention"
             ? t("syncFailedAnnouncement")
-            : state === "all_synced"
-              ? t("syncCompletedAnnouncement")
-              : ""}
+            : ""}
       </p>
     </section>
   );

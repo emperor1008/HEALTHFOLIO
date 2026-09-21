@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { createAdminClient } = await import("@/lib/supabase/admin");
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Record each consent
     const consentRecords = parsed.data.consents.map((c) => ({

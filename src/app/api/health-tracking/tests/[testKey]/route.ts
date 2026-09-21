@@ -5,7 +5,7 @@ import { generateRequestId, createError, formatErrorResponse } from "@/lib/error
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { testKey: string } }
+  { params }: { params: Promise<{ testKey: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -19,11 +19,11 @@ export async function GET(
       );
     }
 
-    const testKey = decodeURIComponent(params.testKey);
+    const testKey = decodeURIComponent((await params).testKey);
     const { searchParams } = new URL(request.url);
     const portfolioId = searchParams.get("portfolioId");
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Fetch all measurements for this test
     let query = admin

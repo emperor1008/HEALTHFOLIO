@@ -121,7 +121,7 @@ export default function HealthTrackingPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

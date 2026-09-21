@@ -248,13 +248,17 @@ describe("idempotency-key generation", () => {
     await engine.syncNow("manual");
     await engine.syncNow("manual");
     await engine.syncNow("manual");
-    // Subsequent syncNow calls coalesce into the in-flight pass, so allow the
-    // final background runPass to settle before asserting.
-    await new Promise((r) => setTimeout(r, 50));
+    // Subsequent syncNow calls coalesce into the in-flight pass, so poll
+    // (deterministically) for the replay to settle instead of guessing a
+    // fixed sleep — CI machines vary in load.
+    const deadline = Date.now() + 2000;
+    while (calls < 2 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
     // Every replay used the SAME idempotency key — the server can dedupe.
+    expect(calls).toBeGreaterThanOrEqual(2);
     expect(keysSeen.length).toBeGreaterThanOrEqual(2);
     expect(new Set(keysSeen).size).toBe(1);
-    expect(calls).toBeGreaterThanOrEqual(2);
     engine.dispose();
   });
 

@@ -11,7 +11,7 @@ const confirmSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -25,7 +25,7 @@ export async function POST(
       );
     }
 
-    const extractionId = params.id;
+    const extractionId = (await params).id;
     const body = await request.json();
     const parsed = confirmSchema.safeParse(body);
 
@@ -37,7 +37,7 @@ export async function POST(
     }
 
     const { decision, correctedValue } = parsed.data;
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Verify extraction ownership
     const { data: extraction, error: fetchError } = await admin

@@ -9,7 +9,7 @@ import {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -23,8 +23,8 @@ export async function GET(
       );
     }
 
-    const measurementId = params.id;
-    const admin = createAdminClient();
+    const measurementId = (await params).id;
+    const admin = await createAdminClient();
 
     // Fetch measurement with ownership check
     const { data: measurement, error: measError } = await admin
@@ -87,7 +87,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -101,7 +101,7 @@ export async function PATCH(
       );
     }
 
-    const measurementId = params.id;
+    const measurementId = (await params).id;
     const body = await request.json();
     const { decision, correctionReason, correctedValueNumeric, correctedValueText,
             correctedReferenceLow, correctedReferenceHigh, correctedReferenceText,
@@ -137,7 +137,7 @@ export async function PATCH(
       }
     }
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Use the atomic RPC function for transactional update + audit
     const { data: result, error: rpcError } = await admin.rpc("review_measurement", {

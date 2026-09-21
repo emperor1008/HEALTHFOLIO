@@ -8,7 +8,7 @@ mechanism and where it lives in code.
 | Role | Resolution | Scope |
 |---|---|---|
 | Patient | Supabase anonymous session (`getUser()`) | Own profile, records, requests, appointments, messages, consents, queue data only |
-| Clinician | `facility_memberships` row (server-side, `src/lib/staff/roles.ts`) | Only assigned/accepted care requests; only consented documents within validity window |
+| Clinician | Active `user_roles` row + `facility_memberships` (server-side, `src/lib/staff/roles.ts`) | Only assigned/accepted care requests; only consented documents within validity window |
 | Coordinator | `facility_memberships` (role = coordinator) | Own facility's clinicians, capacity, unassigned queue; region config |
 | Pharmacy operator | `pharmacy_memberships` (role = operator) | Own pharmacy's stock, requests, internal notes only |
 | Pharmacy manager | `pharmacy_memberships` (role = manager) | Own pharmacy plus staff management |
@@ -69,10 +69,15 @@ Rules enforced everywhere:
 
 - **No secrets in source or Git.** `npm run secrets:scan` (tracked-file
   scanner) runs in the release gate; `.env.local` is gitignored.
-- `SUPABASE_SERVICE_ROLE_KEY` and `STAFF_ROLE_ADMIN_KEY` are **server-only**
-  env vars; they are never prefixed `NEXT_PUBLIC_` and never sent to the
-  browser. All admin-client usage lives in `src/lib/supabase/admin.ts` and
-  server-only modules.
+- `SUPABASE_SERVICE_ROLE_KEY` is a **server-only** env var; it is never
+  prefixed `NEXT_PUBLIC_` and never sent to the browser. All admin-client
+  usage lives in `src/lib/supabase/admin.ts` and server-only modules.
+- Staff roles are stored in `user_roles` (RLS-enabled, **no client
+  policies** — clients can neither read nor write it) and can only be
+  changed by an active platform admin via the server-authorized
+  `/api/staff/admin/roles` route or the local `staff:bootstrap` script.
+  The former `STAFF_ROLE_ADMIN_KEY` header path was removed: no admin
+  secret is accepted from the browser.
 - Environment variable *names* are documented in the README; values are not.
 - No WebRTC credentials or TURN secrets exist (no TURN is configured); the
   signalling endpoint creates no tokens in browser code.

@@ -30,7 +30,7 @@ export default function PreparationPage() {
 
   useEffect(() => {
     async function loadBriefs() {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -52,7 +52,7 @@ export default function PreparationPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
@@ -95,7 +95,7 @@ export default function PreparationPage() {
   }
 
   async function handleApproveBrief(briefId: string) {
-    const supabase = createClient();
+    const supabase = await createClient();
     await supabase
       .from("briefs")
       .update({ status: "approved" })

@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ code: "INVALID_PARAMS" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // 1) The requester must be a clinician with an active assignment.
   const { data: profile } = await admin

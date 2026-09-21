@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
     const userId = user.id;
 
     // 1. Soft-delete profile
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Sign out
-    const supabase = createClient();
+    const supabase = await createClient();
     await supabase.auth.signOut();
 
     return NextResponse.json({

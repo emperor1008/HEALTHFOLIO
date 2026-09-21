@@ -82,7 +82,7 @@ export default function RoutinePage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setError("AUTH_REQUIRED"); setLoading(false); return; }
 

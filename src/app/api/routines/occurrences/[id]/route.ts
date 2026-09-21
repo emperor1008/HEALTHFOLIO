@@ -17,9 +17,9 @@ const actionSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
     error: authError,
@@ -32,7 +32,7 @@ export async function PATCH(
     );
   }
 
-  const occurrenceId = params.id;
+  const occurrenceId = (await params).id;
   const body = await request.json();
   const parsed = actionSchema.safeParse(body);
 
@@ -44,7 +44,7 @@ export async function PATCH(
   }
 
   const { action, clientTimezone, clientRequestId, reason, snoozeMinutes } = parsed.data;
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
 
   // Verify occurrence ownership
   const { data: occurrence } = await admin

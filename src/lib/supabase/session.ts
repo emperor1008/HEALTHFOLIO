@@ -37,7 +37,7 @@ async function createSessionInternal(): Promise<{
   email: string;
 } | null> {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Check for existing session first
     const {

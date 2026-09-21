@@ -110,7 +110,7 @@ export default function RecordsPage() {
     setLoading(true);
     setLoadFailed(false);
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

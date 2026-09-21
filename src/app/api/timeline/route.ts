@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const portfolioId = searchParams.get("portfolioId");
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Get portfolio
     let query = admin

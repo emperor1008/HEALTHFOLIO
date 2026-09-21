@@ -18,7 +18,7 @@ const ConsentSchema = z.object({
   document_ids: z.array(z.string().uuid()).min(1).max(20),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
@@ -35,11 +35,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: appointment } = await admin
     .from("care_appointments")
     .select("id, care_request_id, patient_id, clinician_id, state")
-    .eq("id", params.id)
+    .eq("id", (await params).id)
     .maybeSingle();
   if (!appointment || appointment.patient_id !== user.id) {
     return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
@@ -107,16 +107,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   return NextResponse.json({ code: "CONSENT_GRANTED", consent }, { status: 201 });
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: appointment } = await admin
     .from("care_appointments")
     .select("id, care_request_id, patient_id, clinician_id, state")
-    .eq("id", params.id)
+    .eq("id", (await params).id)
     .maybeSingle();
   if (!appointment || appointment.patient_id !== user.id) {
     return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
@@ -165,16 +165,16 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   return NextResponse.json({ code: "CONSENT_REVOKED" }, { status: 200 });
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: appointment } = await admin
     .from("care_appointments")
     .select("id, care_request_id, patient_id, clinician_id")
-    .eq("id", params.id)
+    .eq("id", (await params).id)
     .maybeSingle();
   if (!appointment) {
     return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });

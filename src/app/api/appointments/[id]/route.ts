@@ -14,7 +14,7 @@ const updateAppointmentSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -31,8 +31,8 @@ export async function PATCH(
       );
     }
 
-    const supabase = createClient();
-    const appointmentId = params.id;
+    const supabase = await createClient();
+    const appointmentId = (await params).id;
     const body = await request.json();
     const parsed = updateAppointmentSchema.safeParse(body);
 

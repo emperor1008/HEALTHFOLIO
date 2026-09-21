@@ -18,7 +18,7 @@ const AcceptSchema = z.object({
     .optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ code: "UNAUTHENTICATED" }, { status: 401 });
@@ -42,8 +42,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ code: "REASON_REQUIRED" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const requestId = params.id;
+  const admin = await createAdminClient();
+  const requestId = (await params).id;
 
   // The clinician must be the one assigned to this request.
   const { data: assignment } = await admin

@@ -11,7 +11,7 @@ import { UNCONFIGURED_REGION, validateRegionConfig, type RegionConfig } from "./
 export async function getRegionConfig(region: string | null): Promise<RegionConfig> {
   if (!region) return UNCONFIGURED_REGION;
   try {
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
     const { data, error } = await admin
       .from("region_config")
       .select("config")
@@ -38,7 +38,7 @@ export async function upsertRegionConfig(
   const config = validateRegionConfig(input);
   if (!config) return { ok: false, reason: "invalid" };
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { error } = await admin.from("region_config").upsert(
     { region: config.region, config, updated_by: userId, updated_at: new Date().toISOString() },
     { onConflict: "region" },

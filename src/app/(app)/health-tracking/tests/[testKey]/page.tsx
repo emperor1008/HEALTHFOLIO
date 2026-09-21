@@ -382,7 +382,7 @@ export default function TestDetailPage({ params }: { params: { testKey: string }
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {

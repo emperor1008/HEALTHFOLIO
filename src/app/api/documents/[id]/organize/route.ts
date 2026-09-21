@@ -8,7 +8,7 @@ import { generateRequestId, createError, formatErrorResponse } from "@/lib/error
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -21,8 +21,8 @@ export async function GET(
       );
     }
 
-    const documentId = params.id;
-    const admin = createAdminClient();
+    const documentId = (await params).id;
+    const admin = await createAdminClient();
 
     // Fetch document with organization data
     const { data: doc, error: docError } = await admin
@@ -94,7 +94,7 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -107,11 +107,11 @@ export async function POST(
       );
     }
 
-    const documentId = params.id;
+    const documentId = (await params).id;
     const body = await request.json();
     const { action } = body;
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Verify ownership
     const { data: doc } = await admin
@@ -309,7 +309,7 @@ export async function POST(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = generateRequestId();
 
@@ -322,11 +322,11 @@ export async function PATCH(
       );
     }
 
-    const documentId = params.id;
+    const documentId = (await params).id;
     const body = await request.json();
     const { category, title, documentDate, correctionReason } = body;
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Verify ownership
     const { data: existing } = await admin

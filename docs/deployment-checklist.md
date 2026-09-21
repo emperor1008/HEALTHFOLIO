@@ -6,8 +6,8 @@ Work through top to bottom. Every box must be checked before release.
 
 - [ ] All names from the README table are configured on the host
       (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-      `SUPABASE_SERVICE_ROLE_KEY` server-only, `STAFF_ROLE_ADMIN_KEY`
-      server-only, AI vars optional).
+      `SUPABASE_SERVICE_ROLE_KEY` server-only, AI vars optional).
+      `STAFF_ROLE_ADMIN_KEY` is retired — remove it if present.
 - [ ] No secret uses the `NEXT_PUBLIC_` prefix.
 - [ ] Values live only in the platform's secret store — never in the repo.
 - [ ] `npm run secrets:scan` passes on the release commit.

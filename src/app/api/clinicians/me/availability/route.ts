@@ -38,7 +38,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const now = new Date().toISOString();
 
   // Find own profile.
@@ -87,7 +87,7 @@ export async function GET() {
   if (!identity || identity.role !== "clinician") {
     return NextResponse.json(STAFF_ROLE_ERROR, { status: 403 });
   }
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data } = await admin
     .from("clinician_profiles")
     .select("*")

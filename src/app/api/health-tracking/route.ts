@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       ? (searchParams.get("timeFilter") as string)
       : "all";
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
 
     // Build date filter
     let dateFilter: string | null = null;

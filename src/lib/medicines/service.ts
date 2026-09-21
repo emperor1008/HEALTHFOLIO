@@ -4,6 +4,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { searchRxNorm, resolveRxCUI } from "./sources/rxnorm";
 import { searchDailyMed, getDailyMedLabel, convertToLabelSections } from "./sources/dailymed";
 import { searchOpenFDA, getOpenFDALabel } from "./sources/openfda";
@@ -19,9 +20,9 @@ import type {
   SourceCitation,
 } from "./types";
 
-let _admin: ReturnType<typeof createAdminClient> | null = null;
-function getAdmin() {
-  if (!_admin) _admin = createAdminClient();
+let _admin: SupabaseClient | null = null;
+async function getAdmin(): Promise<SupabaseClient> {
+  if (!_admin) _admin = await createAdminClient();
   return _admin;
 }
 
@@ -112,7 +113,7 @@ export async function getMedicineDetail(
   error?: string;
 }> {
   // Fetch entity
-  const { data: entity } = await getAdmin()
+  const { data: entity } = await (await getAdmin())
     .from("medicine_entities")
     .select("*")
     .eq("id", medicineEntityId)
@@ -131,7 +132,7 @@ export async function getMedicineDetail(
   }
 
   // Fetch source records
-  const { data: sourceRecords } = await getAdmin()
+  const { data: sourceRecords } = await (await getAdmin())
     .from("medicine_source_records")
     .select("*")
     .eq("medicine_entity_id", medicineEntityId)
@@ -142,7 +143,7 @@ export async function getMedicineDetail(
   let labelSections: MedicineLabelSection[] = [];
 
   if (sourceRecordIds.length > 0) {
-    const { data: sections } = await getAdmin()
+    const { data: sections } = await (await getAdmin())
       .from("medicine_label_sections")
       .select("*")
       .in("source_record_id", sourceRecordIds);
@@ -153,7 +154,7 @@ export async function getMedicineDetail(
   // Fetch user links if userId provided
   let userLinks: UserMedicineLink[] = [];
   if (userId) {
-    const { data: links } = await getAdmin()
+    const { data: links } = await (await getAdmin())
       .from("user_medicine_links")
       .select("*")
       .eq("user_id", userId)
@@ -214,7 +215,7 @@ export async function resolvePrescriptionItem(
   error?: string;
 }> {
   // Verify ownership
-  const { data: item } = await getAdmin()
+  const { data: item } = await (await getAdmin())
     .from("prescription_items")
     .select("id, raw_medicine_text, medicine_name, user_id")
     .eq("id", prescriptionItemId)
@@ -255,7 +256,7 @@ export async function linkMedicine(params: {
   relationshipType: string;
 }): Promise<{ success: boolean; linkId?: string; error?: string }> {
   // Check for existing link
-  const { data: existing } = await getAdmin()
+  const { data: existing } = await (await getAdmin())
     .from("user_medicine_links")
     .select("id")
     .eq("user_id", params.userId)
@@ -268,7 +269,7 @@ export async function linkMedicine(params: {
   }
 
   // Create new link
-  const { data: link, error } = await getAdmin()
+  const { data: link, error } = await (await getAdmin())
     .from("user_medicine_links")
     .insert({
       user_id: params.userId,
@@ -305,7 +306,7 @@ export async function getUserPrescribedMedicines(
     prescriptionText: string | null;
   }>;
 }> {
-  const { data: links } = await getAdmin()
+  const { data: links } = await (await getAdmin())
     .from("user_medicine_links")
     .select(`
       *,
@@ -349,7 +350,7 @@ export async function recordLookupEvent(params: {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  await getAdmin().from("medicine_lookup_events").insert({
+  (await getAdmin()).from("medicine_lookup_events").insert({
     user_id: params.userId,
     query_hash: queryHash,
     matched_medicine_entity_id: params.matchedEntityId || null,
