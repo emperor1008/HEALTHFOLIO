@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
+import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
+import { auth } from "@/lib/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -13,11 +14,32 @@ import { ResetPasswordSchema } from "@/lib/auth/schemas";
 function ResetPasswordFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  // Firebase reset emails land with `?oobCode=` (mode=resetPassword); the
+  // older `?token=` link format is still accepted so previous emails work.
+  const token = searchParams.get("oobCode") ?? searchParams.get("token") ?? "";
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [targetEmail, setTargetEmail] = useState<string | null>(null);
+
+  // Validate the code up front and show which account it belongs to.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    verifyPasswordResetCode(auth, token)
+      .then((email) => {
+        if (!cancelled) setTargetEmail(email);
+      })
+      .catch(() => {
+        // Invalid/expired codes still surface their friendly message when
+        // submitted — verification here only decides whether to show the
+        // target email.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,19 +53,22 @@ function ResetPasswordFormContent() {
 
     setLoading(true);
     try {
-      const { error: resetError } = await authClient.resetPassword({
-        newPassword: parsed.data.newPassword,
-        token,
-      });
-      if (resetError) {
-        setError(
-          "This reset link is invalid or has expired. Please request a new one."
-        );
-        return;
-      }
+      await confirmPasswordReset(auth, token, parsed.data.newPassword);
       // All other sessions were revoked server-side after the reset.
       setDone(true);
       setTimeout(() => router.push("/sign-in"), 2500);
+    } catch (err) {
+      const code = (err as { code?: unknown } | null)?.code;
+      if (typeof code !== "string" || code === "auth/network-request-failed") {
+        // Network-level failure (server unreachable).
+        setError("We couldn't reach Healthfolio right now. Please check your connection and try again.");
+      } else if (code === "auth/weak-password") {
+        setError("Please choose a new password of at least 8 characters.");
+      } else {
+        setError(
+          "This reset link is invalid or has expired. Please request a new one."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -74,20 +99,33 @@ function ResetPasswordFormContent() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-      <Input
-        label="New password"
-        type="password"
-        value={newPassword}
-        onChange={(e) => setNewPassword(e.target.value)}
-        required
-        autoComplete="new-password"
-        helpText="At least 8 characters."
-      />
-      <Button type="submit" loading={loading} loadingText="Updating…" className="w-full">
-        Set new password
-      </Button>
-    </form>
+    <>
+      {error && (
+        <div className="mt-4">
+          <ErrorMessage message={error} />
+        </div>
+      )}
+      {targetEmail && (
+        <p className="mt-4 text-sm text-text-secondary">
+          Resetting the password for{" "}
+          <span className="font-medium text-text-primary">{targetEmail}</span>.
+        </p>
+      )}
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <Input
+          label="New password"
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+          helpText="At least 8 characters."
+        />
+        <Button type="submit" loading={loading} loadingText="Updating…" className="w-full">
+          Set new password
+        </Button>
+      </form>
+    </>
   );
 }
 

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/auth-client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
@@ -27,28 +28,25 @@ export function ForgotPasswordForm() {
 
     setLoading(true);
     try {
-      const { error: resetError } = await authClient.requestPasswordReset({
-        email: parsed.data.email,
-        redirectTo: "/reset-password",
-      });
-      if (resetError && resetError.status === 429) {
-        setError("Too many attempts. Please wait a minute and try again.");
-        return;
-      }
-      if (
-        resetError &&
-        typeof resetError.status === "number" &&
-        resetError.status >= 500
-      ) {
-        // Server-side failure — no reset email was sent. Never claim it was.
-        setError("Something went wrong on our side. Please try again in a few minutes.");
-        return;
-      }
+      // Firebase's own email templates — no SMTP anywhere (parity with the
+      // zero-email-infra reality before).
+      await sendPasswordResetEmail(auth, parsed.data.email);
       // Always show the calm confirmation regardless of account existence.
       setSent(true);
-    } catch {
-      // Network-level failure (server unreachable).
-      setError("We couldn't reach Healthfolio right now. Please check your connection and try again.");
+    } catch (err) {
+      const code = (err as { code?: unknown } | null)?.code;
+      if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please wait a minute and try again.");
+      } else if (code === "auth/internal-error" || code === "auth/server-error") {
+        // Server-side failure — no reset email was sent. Never claim it was.
+        setError("Something went wrong on our side. Please try again in a few minutes.");
+      } else if (typeof code !== "string" || code === "auth/network-request-failed") {
+        // Network-level failure (server unreachable).
+        setError("We couldn't reach Healthfolio right now. Please check your connection and try again.");
+      } else {
+        // user-not-found and friends: account existence is never revealed.
+        setSent(true);
+      }
     } finally {
       setLoading(false);
     }

@@ -77,22 +77,23 @@ export function RegisterForm() {
 
     setLoading(true);
 
-    // Profile fields ride on the sign-up request; the server persists the
-    // configured additionalFields (dob/gender/region) and ignores the rest.
+    // Server-first registration (P1 Section C): POST /api/auth/register
+    // validates the same RegisterSchema, creates the auth user with a UUID
+    // uid and provisions the identity, returning a custom token the client
+    // exchanges for a signed-in SDK session + the __session cookie.
     let result: Awaited<ReturnType<typeof signUp.email>>;
     try {
       result = await signUp.email({
         email: form.email.trim(),
         name: form.name.trim(),
         password: form.password,
+        dob: form.dob,
+        gender: form.gender
+          ? (form.gender as "female" | "male" | "other")
+          : undefined,
+        region: form.region || undefined,
+        consent: true,
         callbackURL: "/dashboard",
-        fetchOptions: {
-          body: {
-            dob: form.dob,
-            gender: form.gender || undefined,
-            region: form.region || undefined,
-          },
-        },
       });
     } catch {
       // Network-level failure (server unreachable) — never a user-input problem.

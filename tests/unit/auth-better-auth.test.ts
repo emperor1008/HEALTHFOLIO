@@ -1,5 +1,5 @@
 /**
- * Better Auth role/authentication regression tests (release migration).
+ * Auth role/authentication regression tests (Firebase migration P1).
  *
  * Covers the auth migration's security contract without a live database:
  * - redirect allowlisting (no open redirects, no off-origin steering);
@@ -11,10 +11,11 @@
  * - in-memory rate limiting (bounded, window reset);
  * - offline queue ownership (items never sync under the wrong account,
  *   pre-auth markers are never claimed by a different user);
- * - lazy Better Auth configuration gate (no import-time crash; the handler
- *   answers 503 when DATABASE_URL / BETTER_AUTH_SECRET are absent);
+ * - lazy Firebase configuration gate (no import-time crash; the session
+ *   route answers 503 when FIREBASE_SERVICE_ACCOUNT_KEY is absent);
  * - migration 027 compatibility (Better Auth canonical columns, no
- *   destructive statements, role policy wiring present).
+ *   destructive statements, role policy wiring present — P1-TEMP identity
+ *   bridge until P5).
  */
 import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from "vitest";
 
@@ -265,7 +266,7 @@ describe("credential rate limiting", () => {
 
 /* ─────────────────── offline queue ownership ─────────────────────────── */
 
-describe("offline queue ownership (Better Auth sessions)", () => {
+describe("offline queue ownership (session-scoped items)", () => {
   it("items sync only under the owning account", async () => {
     const { canSyncItem } = await import("@/lib/offline/ownership");
     const owned = { ownerId: "user-A", id: "q1" } as never;
@@ -301,53 +302,53 @@ describe("offline queue ownership (Better Auth sessions)", () => {
   });
 });
 
-/* ─────────────── Better Auth configuration & handler gate ───────────── */
+/* ─────────────────── Firebase configuration & route gate ────────────── */
 
-describe("Better Auth configuration gate", () => {
+describe("Firebase configuration gate", () => {
   const ORIGINAL = { ...process.env };
 
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...ORIGINAL };
-    delete process.env.DATABASE_URL;
-    delete process.env.BETTER_AUTH_SECRET;
+    delete process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   });
 
   afterEach(() => {
     process.env = ORIGINAL;
   });
 
-  it("importing auth.ts never throws — even with no environment", async () => {
-    await expect(import("@/lib/auth")).resolves.toBeTruthy();
+  it("importing the admin module never throws — even with no environment", async () => {
+    await expect(import("@/lib/firebase/admin")).resolves.toBeTruthy();
   });
 
-  it("isAuthConfigured() reflects the environment", async () => {
-    const mod = await import("@/lib/auth");
-    expect(mod.isAuthConfigured()).toBe(false);
-    process.env.DATABASE_URL = "postgresql://placeholder.invalid/db";
-    process.env.BETTER_AUTH_SECRET = "placeholder-not-a-real-secret";
-    vi.resetModules();
-    const mod2 = await import("@/lib/auth");
-    expect(mod2.isAuthConfigured()).toBe(true);
+  it("isFirebaseAdminConfigured() reflects the environment", async () => {
+    const mod = await import("@/lib/firebase/admin");
+    expect(mod.isFirebaseAdminConfigured()).toBe(false);
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY = '{"project_id":"placeholder-invalid"}';
+    expect(mod.isFirebaseAdminConfigured()).toBe(true);
   });
 
-  it("auth handler answers generic 503 when unconfigured — no internals", async () => {
-    const { POST } = await import("@/app/api/auth/[...all]/route");
+  it("session exchange answers 503 when unconfigured — no internals", async () => {
+    const { POST } = await import("@/app/api/auth/session/route");
     const res = await POST(
-      new Request("http://localhost:3000/api/auth/sign-in/email", { method: "POST" })
+      new Request("http://localhost:3000/api/auth/session", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ idToken: "x".repeat(32) }),
+      })
     );
     expect(res.status).toBe(503);
     const body = await res.json();
-    expect(body.error).toBe("AUTH_NOT_CONFIGURED");
-    expect(JSON.stringify(body)).not.toMatch(/DATABASE_URL|postgres|secret/i);
+    expect(body.code).toBe("SERVER_NOT_CONFIGURED");
+    expect(JSON.stringify(body)).not.toMatch(/private_key|BEGIN PRIVATE|postgres/i);
   });
 
-  it("requireAuth error names the missing variables, never any value", async () => {
-    process.env.DATABASE_URL = "";
-    process.env.BETTER_AUTH_SECRET = "";
-    const mod = await import("@/lib/auth");
-    await expect(mod.requireAuth()).rejects.toThrow(/DATABASE_URL and BETTER_AUTH_SECRET/);
-    await expect(mod.requireAuth()).rejects.not.toThrow(/postgres(ql)?:\/\/[^\s"]+/i);
+  it("admin init error names the missing variable, never any value", async () => {
+    const mod = await import("@/lib/firebase/admin");
+    expect(() => mod.getAdminAuth()).toThrow(/FIREBASE_SERVICE_ACCOUNT_KEY/);
+    await expect(Promise.resolve().then(() => mod.getAdminAuth())).rejects.not.toThrow(
+      /postgres(ql)?:\/\/[^\s"]+/i
+    );
   });
 });
 
@@ -409,14 +410,14 @@ describe("route proxy (Next 16) auth gating", () => {
     src = await fs.promises.readFile("src/proxy.ts", "utf8");
   });
 
-  it("gates pages on the Better Auth session cookie", () => {
-    expect(src).toContain("getSessionCookie");
+  it("gates pages on the Firebase session cookie", () => {
+    expect(src).toContain("SESSION_COOKIE");
     expect(src).toContain("/sign-in");
   });
 
   it("never redirects API routes — they answer JSON for themselves", () => {
     // Regression: proxying /api/* to an HTML sign-in page broke the offline
-    // sync engine and Better Auth's own credential endpoints (307 instead of
+    // sync engine and the session-exchange endpoint (307 instead of
     // 401/503 JSON). API routes enforce sessions server-side.
     expect(src).toMatch(/pathname\.startsWith\(["']\/api\/["']\)/);
   });

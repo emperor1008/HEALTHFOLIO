@@ -26,13 +26,13 @@
     "admin:bootstrap": "node scripts/admin-bootstrap.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.12",
-    "better-auth": "^1.7.5",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dompurify": "^3.4.15",
     "dotenv": "^18.0.1",
+    "firebase": "^13.0.0",
+    "firebase-admin": "^14.5.0",
     "framer-motion": "^13.1.1",
     "ics": "^3.7.2",
     "jspdf": "^4.2.1",

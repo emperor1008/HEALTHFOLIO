@@ -59,8 +59,8 @@ export function SignInForm() {
       return;
     }
 
-    // Role-based routing is decided by the server via callbackURL resolution;
-    // for non-callback sign-ins the client asks the server where to go.
+    // Post-login routing (unchanged): an explicit, sanitized ?redirect=
+    // always wins; otherwise the server decides the role landing route.
     try {
       const res = await fetch("/api/auth/home", { method: "GET" });
       if (res.ok) {

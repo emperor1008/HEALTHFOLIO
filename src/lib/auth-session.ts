@@ -2,10 +2,12 @@
  * Session and role resolution — server-side only.
  *
  * Every server surface (pages, route handlers) resolves identity through
- * `getSessionUser()` which reads the Better Auth session cookie, and roles
- * through `getActiveRoles()` which reads the `app_roles` registry (migration
- * 027). The registry is RLS-locked with no policies, so it is reachable only
- * from server code; the browser can never assert or elevate a role.
+ * `getSessionUser()` which verifies the Firebase `__session` cookie, and
+ * roles through `getActiveRoles()` which reads the `users/{uid}` identity
+ * document (Firebase Migration P1). The browser can never assert or elevate
+ * a role: the cookie is HttpOnly and cryptographically verified, and role
+ * writes happen only through server routes (provision, doctor apply, staff
+ * console) using the Admin SDK, which bypasses Firestore rules.
  *
  * Role policy (enforced here and by every API route):
  *   patient          — full app access to own data
@@ -13,10 +15,15 @@
  *   doctor           — assigned patients + active-consent records
  *   facility_admin   — own facility management
  *   platform_admin   — audited platform-only actions
+ *
+ * Profile reads (email/displayName/roles) are cached in-memory for 60s per
+ * uid — a single Firestore doc read per user per minute. Every writer of the
+ * roles doc MUST call `invalidateSessionProfileCache(uid)` so promotions and
+ * revocations land immediately for the affected session.
  */
 import { headers } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-import { getAuth } from "@/lib/auth";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
+import { readSessionCookie } from "@/lib/firebase/session-cookie";
 
 export type AppRole =
   | "patient"
@@ -45,55 +52,102 @@ export interface SessionWithRoles {
   roles: AppRole[];
 }
 
-/**
- * Service-role Supabase client for role-registry reads. The key is read from
- * the environment at call time and never leaves the server.
- */
-function getRoleStoreClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return null;
-  return createClient(url, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+interface CachedProfile {
+  email: string;
+  displayName: string;
+  roles: AppRole[];
+  expiresAt: number;
 }
 
-/** Resolve the Better Auth session for the current request. Null when signed out. */
-export async function getSessionUser(): Promise<SessionUser | null> {
+const PROFILE_TTL_MS = 60_000;
+const profileCache = new Map<string, CachedProfile | null>();
+
+/**
+ * Drop the cached identity doc for a user (or everyone). Called by every
+ * roles/profile writer: provision, doctor apply, staff console, account
+ * deletion — so guards see the change without waiting out the TTL.
+ */
+export function invalidateSessionProfileCache(userId?: string): void {
+  if (userId) profileCache.delete(userId);
+  else profileCache.clear();
+}
+
+/**
+ * The `users/{uid}` identity doc, cached 60s. Returns null when the doc does
+ * not exist (pre-provision) or Firebase is not configured — callers treat
+ * both as "no roles, no profile".
+ */
+async function getCachedProfile(userId: string): Promise<CachedProfile | null> {
+  const hit = profileCache.get(userId);
+  if (hit !== undefined) {
+    if (hit === null) return null;
+    if (hit.expiresAt > Date.now()) return hit;
+    profileCache.delete(userId);
+  }
   try {
-    const auth = await getAuth();
-    if (!auth) return null; // auth not configured → no session anywhere
-    const h = await headers();
-    const session = await auth.api.getSession({ headers: h });
-    if (!session?.user) return null;
-    return {
-      id: session.user.id,
-      email: session.user.email ?? "",
-      name: session.user.name ?? "",
+    const snap = await getAdminDb().doc(`users/${userId}`).get();
+    if (!snap.exists) {
+      profileCache.set(userId, null);
+      return null;
+    }
+    const raw = snap.data() ?? {};
+    const roles = Array.isArray(raw.roles)
+      ? (raw.roles.filter((r): r is AppRole =>
+          APP_ROLES.includes(r as AppRole)
+        ) as AppRole[])
+      : [];
+    const profile: CachedProfile = {
+      email: typeof raw.email === "string" ? raw.email : "",
+      displayName:
+        typeof raw.displayName === "string" ? raw.displayName : "",
+      roles,
+      expiresAt: Date.now() + PROFILE_TTL_MS,
     };
+    profileCache.set(userId, profile);
+    return profile;
   } catch {
-    // Database/cookie errors resolve to "no session" — callers return 401.
+    // Missing env / network errors resolve to "no profile" — guards treat it
+    // as signed-out or role-less, never a crash.
     return null;
   }
 }
 
 /**
- * Active roles for a user, resolved per request from the registry.
- * Suspended/revoked rows are excluded, so revocation takes effect immediately.
+ * Resolve the Firebase session for the current request. Null when signed
+ * out, when the cookie is stale/invalid, or when auth is not configured —
+ * callers return 401 (same posture as the old Better Auth resolver).
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  try {
+    const h = await headers();
+    const token = readSessionCookie(h.get("cookie"));
+    if (!token) return null;
+    const decoded = await getAdminAuth().verifySessionCookie(token);
+    const uid = decoded.uid;
+    if (!uid) return null;
+    // Session-cookie claims usually carry email/name, but the identity doc
+    // is the authoritative fallback (and the only source before claims
+    // propagate). Cached, so this is not an extra round-trip per request.
+    const profile = await getCachedProfile(uid);
+    return {
+      id: uid,
+      email: decoded.email || profile?.email || "",
+      name: decoded.name || profile?.displayName || "",
+    };
+  } catch {
+    // Cookie/verification errors resolve to "no session" — callers return 401.
+    return null;
+  }
+}
+
+/**
+ * Active identity roles for a user, resolved from `users/{uid}.roles` with a
+ * 60s cache. Unknown values are filtered out; a missing doc yields [].
  */
 export async function getActiveRoles(userId: string): Promise<AppRole[]> {
-  const supabase = getRoleStoreClient();
-  if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from("app_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("status", "active");
-    if (error || !data) return [];
-    return data
-      .map((r) => r.role as AppRole)
-      .filter((role) => APP_ROLES.includes(role));
+    const profile = await getCachedProfile(userId);
+    return profile ? profile.roles : [];
   } catch {
     return [];
   }

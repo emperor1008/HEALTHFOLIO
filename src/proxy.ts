@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSessionCookie } from "better-auth/cookies";
+import { SESSION_COOKIE } from "@/lib/firebase/session-cookie";
 
 /**
- * Route proxy (Next.js 16 convention) guarding the Better Auth session.
+ * Route proxy (Next.js 16 convention) guarding the Firebase session cookie.
  *
- * - Uses Better Auth's cookie-presence check (fast, no DB call). Full session
- *   validation, role checks, ownership, and consent happen in every server
- *   page/route — this proxy is only the outer gate.
+ * - Checks `__session` PRESENCE only (fast, no verification here —
+ *   firebase-admin cannot run in the middleware/edge runtime). Full
+ *   cryptographic validation, role checks, ownership, and consent happen in
+ *   every server page/route — this proxy is only the outer gate.
  * - Signed-out users hitting a protected route go to /sign-in (no anonymous
  *   bootstrap anymore).
  * - Signed-in users never see /sign-in or /register again.
@@ -39,16 +40,17 @@ const AUTH_PAGES = ["/sign-in", "/register", "/forgot-password", "/reset-passwor
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // API routes answer for themselves: every route handler verifies the Better
-  // Auth session server-side and returns JSON 401/403/503 (never a redirect).
-  // Redirecting /api/* to an HTML sign-in page would break the offline sync
-  // engine and every programmatic client — and Better Auth's own credential
-  // endpoints must be reachable by signed-out users.
+  // API routes answer for themselves: every route handler verifies the
+  // Firebase session cookie server-side and returns JSON 401/403/503 (never a
+  // redirect). Redirecting /api/* to an HTML sign-in page would break the
+  // offline sync engine and every programmatic client — and the new session
+  // exchange endpoint must be reachable by signed-out users.
   if (pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
 
-  const hasSession = Boolean(getSessionCookie(request));
+  const cookieValue = request.cookies.get(SESSION_COOKIE)?.value;
+  const hasSession = Boolean(cookieValue);
 
   const isAuthPage = AUTH_PAGES.some((p) => pathname === p);
   const isPublic = PUBLIC_ROUTES.some((p) => pathname === p) || isAuthPage;
