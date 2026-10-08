@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth-helpers";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createClient();
     const user = await getUser();
     if (!user) {
       return NextResponse.json({ signals: [], total: 0, hasMore: false });

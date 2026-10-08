@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -144,18 +143,12 @@ export default function ReportDetailPage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
+      const response = await fetch(`/api/reports/${documentId}`, { cache: "no-store" });
+      if (response.status === 401) {
         setError("AUTH_REQUIRED");
         setLoading(false);
         return;
       }
-
-      const response = await fetch(`/api/reports/${documentId}`);
       const json = await response.json();
 
       if (json.error) {

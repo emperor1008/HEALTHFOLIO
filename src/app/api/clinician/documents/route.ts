@@ -93,9 +93,12 @@ export async function GET(req: Request) {
   if (!careRequest) {
     return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
   }
+  // Column names are the schema's own: `original_name` (the patient-facing
+  // filename), not `file_name` — selecting a non-existent column made this
+  // route fail the read and answer 404 for every legitimate request.
   const { data: document } = await admin
     .from("documents")
-    .select("id, user_id, storage_path, file_name, mime_type")
+    .select("id, user_id, storage_path, original_name, mime_type")
     .eq("id", documentId)
     .eq("user_id", careRequest.user_id)
     .maybeSingle();
@@ -126,7 +129,11 @@ export async function GET(req: Request) {
   return NextResponse.json(
     {
       code: "OK",
-      document: { id: document.id, file_name: document.file_name, mime_type: document.mime_type },
+      document: {
+        id: document.id,
+        file_name: document.original_name,
+        mime_type: document.mime_type,
+      },
       signedUrl: signed.signedUrl,
       expiresInSeconds: SIGNED_URL_TTL_SECONDS,
     },

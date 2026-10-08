@@ -124,6 +124,71 @@ export interface Dict {
   languageSettingsHint: string;
   languageSyncNote: string;
   cancel: string;
+
+  // Rural-first home actions (Phase 4)
+  homeChooseAction: string;
+  homeTalkToDoctor: string;
+  homeTalkToDoctorHint: string;
+  homeCheckSymptoms: string;
+  homeCheckSymptomsHint: string;
+  homeCheckMedicine: string;
+  homeCheckMedicineHint: string;
+  homeMyHealth: string;
+  homeMyHealthHint: string;
+
+  // Dashboard content (Phase 4)
+  dashboardUploadTitle: string;
+  dashboardUploadHint: string;
+  dashboardNeedsAttention: string;
+  dashboardReview: string;
+  dashboardLatestInsight: string;
+  dashboardNoInsightsTitle: string;
+  dashboardNoInsightsHint: string;
+  dashboardEmptyHint: string;
+  dashboardRecordsOne: string;
+  dashboardRecordsMany: string;
+  dashboardAttentionDocsOne: string;
+  dashboardAttentionDocsMany: string;
+  dashboardAttentionDocsHint: string;
+  dashboardAttentionMeasurementsOne: string;
+  dashboardAttentionMeasurementsMany: string;
+  dashboardAttentionMeasurementsHint: string;
+  dashboardAttentionPaused: string;
+  dashboardAttentionPausedHint: string;
+  dashboardRecentActivity: string;
+  dashboardViewAllRecords: string;
+  dashboardRecentEmpty: string;
+  dashboardNoDocuments: string;
+  dashboardProcessingEmpty: string;
+  dashboardRunComplete: string;
+  dashboardRunNeedsAttention: string;
+  dashboardRunWaiting: string;
+  dashboardRunProcessing: string;
+  dashboardPointsOne: string;
+  dashboardPointsMany: string;
+  dashboardEvidenceNote: string;
+  dashboardOpenRecords: string;
+  dashboardStatusProcessed: string;
+  dashboardStatusReview: string;
+  dashboardStatusUploaded: string;
+  dashboardStatusExtracting: string;
+  dashboardStatusClassifying: string;
+  dashboardStatusOrganizing: string;
+  onboardingTitle: string;
+  onboardingIntro: string;
+  onboardingCanAdd: string;
+  onboardingLab: string;
+  onboardingRx: string;
+  onboardingScans: string;
+  onboardingDischarge: string;
+  onboardingUpload: string;
+  onboardingCreate: string;
+  onboardingPreparing: string;
+  onboardingCreating: string;
+  onboardingPrivacy: string;
+  dashboardLoadFailTitle: string;
+  dashboardLoadFailHint: string;
+  tryAgain: string;
 }
 
 const en: Dict = {
@@ -207,6 +272,82 @@ const en: Dict = {
   languageSettingsHint: "Choose the language for app screens.",
   languageSyncNote: "Your language choice is saved on this device and synced when a connection is available.",
   cancel: "Cancel",
+
+  // Rural-first home actions
+  homeChooseAction: "What do you want to do?",
+  homeTalkToDoctor: "Talk to a Doctor",
+  homeTalkToDoctorHint: "Describe your problem and get care support",
+  homeCheckSymptoms: "Check My Symptoms",
+  homeCheckSymptomsHint: "See how urgent it is, step by step",
+  homeCheckMedicine: "Check Medicine",
+  homeCheckMedicineHint: "See if it is available near you before you travel",
+  homeMyHealth: "My Health",
+  homeMyHealthHint: "Your records, tests and offline health card",
+
+  // Dashboard content
+  dashboardUploadTitle: "Scan or upload a record",
+  dashboardUploadHint:
+    "Take a photo of a report or upload a file — Healthfolio reads it and shows you what to confirm.",
+  dashboardNeedsAttention: "Needs your attention",
+  dashboardReview: "Review",
+  dashboardLatestInsight: "Latest verified insight",
+  dashboardNoInsightsTitle: "No verified health insights yet",
+  dashboardNoInsightsHint:
+    "Once you confirm the details Healthfolio reads from your reports, your trends and timeline appear here.",
+  dashboardEmptyHint:
+    "Build your health timeline by adding your first medical record.",
+  dashboardRecordsOne: "1 record organized so far. Here's where things stand.",
+  dashboardRecordsMany:
+    "{count} records organized so far. Here's where things stand.",
+  dashboardAttentionDocsOne: "1 document with uncertain details",
+  dashboardAttentionDocsMany: "{count} documents with uncertain details",
+  dashboardAttentionDocsHint: "A quick look keeps your timeline accurate.",
+  dashboardAttentionMeasurementsOne: "1 measurement awaiting your confirmation",
+  dashboardAttentionMeasurementsMany:
+    "{count} measurements awaiting your confirmation",
+  dashboardAttentionMeasurementsHint: "Confirmed values make your trends reliable.",
+  dashboardAttentionPaused: "Processing is paused for your input",
+  dashboardAttentionPausedHint: "Resolve the open items to continue organizing.",
+  dashboardRecentActivity: "Recent activity",
+  dashboardViewAllRecords: "View all records",
+  dashboardRecentEmpty:
+    "Your organized records will appear here after your first upload is processed.",
+  dashboardNoDocuments: "No documents yet.",
+  dashboardProcessingEmpty:
+    "Processing activity will appear after your first upload.",
+  dashboardRunComplete: "Complete",
+  dashboardRunNeedsAttention: "Needs attention",
+  dashboardRunWaiting: "Waiting for you",
+  dashboardRunProcessing: "Processing",
+  dashboardPointsOne: "1 point",
+  dashboardPointsMany: "{count} points",
+  dashboardEvidenceNote:
+    "Source document · page {page}. Open the Records page to view the full document.",
+  dashboardOpenRecords: "Open Records",
+  dashboardStatusProcessed: "Processed",
+  dashboardStatusReview: "Review needed",
+  dashboardStatusUploaded: "Uploaded",
+  dashboardStatusExtracting: "Reading document",
+  dashboardStatusClassifying: "Identifying type",
+  dashboardStatusOrganizing: "Organizing",
+  onboardingTitle: "Welcome to your health space",
+  onboardingIntro:
+    "Add your first medical record to start. Healthfolio organizes reports, prescriptions and scans into one private, verified space.",
+  onboardingCanAdd: "You can add:",
+  onboardingLab: "Lab reports",
+  onboardingRx: "Prescriptions",
+  onboardingScans: "Scan images",
+  onboardingDischarge: "Discharge summaries",
+  onboardingUpload: "Scan or upload a record",
+  onboardingCreate: "Just create my space",
+  onboardingPreparing: "Preparing…",
+  onboardingCreating: "Creating…",
+  onboardingPrivacy:
+    "Your documents remain private to your account and are processed only for your Healthfolio.",
+  dashboardLoadFailTitle: "We couldn't load your health space right now",
+  dashboardLoadFailHint:
+    "This is usually a connection issue. Your records are safe — try again in a moment.",
+  tryAgain: "Try again",
 };
 
 const hi: Dict = {
@@ -294,6 +435,82 @@ const hi: Dict = {
   languageSyncNote:
     "आपकी भाषा की पसंद इस डिवाइस पर सहेजी जाती है और कनेक्शन मिलने पर सिंक हो जाती है।",
   cancel: "रद्द करें",
+
+  // Rural-first home actions
+  homeChooseAction: "आप क्या करना चाहते हैं?",
+  homeTalkToDoctor: "डॉक्टर से बात करें",
+  homeTalkToDoctorHint: "अपनी समस्या बताएँ और देखभाल सहायता पाएँ",
+  homeCheckSymptoms: "लक्षण जाँचें",
+  homeCheckSymptomsHint: "कदम-दर-कदम जानें कि कितनी जल्दी देखभाल चाहिए",
+  homeCheckMedicine: "दवा जाँचें",
+  homeCheckMedicineHint: "यात्रा से पहले जानें कि दवा पास में मिलेगी या नहीं",
+  homeMyHealth: "मेरा स्वास्थ्य",
+  homeMyHealthHint: "आपके रिकॉर्ड, टेस्ट और ऑफ़लाइन हेल्थ कार्ड",
+
+  // Dashboard content
+  dashboardUploadTitle: "रिकॉर्ड स्कैन या अपलोड करें",
+  dashboardUploadHint:
+    "रिपोर्ट की फोटो लें या फ़ाइल अपलोड करें — Healthfolio इसे पढ़ता है और पुष्टि के लिए दिखाता है।",
+  dashboardNeedsAttention: "आपका ध्यान चाहिए",
+  dashboardReview: "देखें",
+  dashboardLatestInsight: "नवीनतम सत्यापित जानकारी",
+  dashboardNoInsightsTitle: "अभी कोई सत्यापित स्वास्थ्य जानकारी नहीं",
+  dashboardNoInsightsHint:
+    "जब आप Healthfolio द्वारा पढ़ी गई जानकारी की पुष्टि करेंगे, तो आपके ट्रेंड और टाइमलाइन यहाँ दिखेंगे।",
+  dashboardEmptyHint:
+    "अपना पहला मेडिकल रिकॉर्ड जोड़कर स्वास्थ्य टाइमलाइन बनाएँ।",
+  dashboardRecordsOne: "अब तक 1 रिकॉर्ड व्यवस्थित हुआ है। यहाँ स्थिति देखें।",
+  dashboardRecordsMany:
+    "अब तक {count} रिकॉर्ड व्यवस्थित हुए हैं। यहाँ स्थिति देखें।",
+  dashboardAttentionDocsOne: "1 डॉक्यूमेंट में कुछ विवरण अनिश्चित हैं",
+  dashboardAttentionDocsMany: "{count} डॉक्यूमेंट में कुछ विवरण अनिश्चित हैं",
+  dashboardAttentionDocsHint: "झटपट देखने से टाइमलाइन सही रहती है।",
+  dashboardAttentionMeasurementsOne: "1 माप आपकी पुष्टि की प्रतीक्षा में",
+  dashboardAttentionMeasurementsMany:
+    "{count} माप आपकी पुष्टि की प्रतीक्षा में",
+  dashboardAttentionMeasurementsHint: "पुष्ट किए गए मान आपके ट्रेंड को भरोसेमंद बनाते हैं।",
+  dashboardAttentionPaused: "प्रसंस्करण आपके इनपुट के लिए रुका है",
+  dashboardAttentionPausedHint: "जारी रखने के लिए खुली आइटम दर्ज करें।",
+  dashboardRecentActivity: "हाल की गतिविधि",
+  dashboardViewAllRecords: "सभी रिकॉर्ड देखें",
+  dashboardRecentEmpty:
+    "आपके व्यवस्थित रिकॉर्ड पहले अपलोड के प्रसंस्करण के बाद यहाँ दिखेंगे।",
+  dashboardNoDocuments: "अभी कोई डॉक्यूमेंट नहीं।",
+  dashboardProcessingEmpty:
+    "प्रसंस्करण गतिविधि पहले अपलोड के बाद दिखेगी।",
+  dashboardRunComplete: "पूर्ण",
+  dashboardRunNeedsAttention: "ध्यान चाहिए",
+  dashboardRunWaiting: "आपकी प्रतीक्षा में",
+  dashboardRunProcessing: "प्रसंस्करण",
+  dashboardPointsOne: "1 बिंदु",
+  dashboardPointsMany: "{count} बिंदु",
+  dashboardEvidenceNote:
+    "स्रोत डॉक्यूमेंट · पृष्ठ {page}। पूरा डॉक्यूमेंट देखने के लिए रिकॉर्ड पृष्ठ खोलें।",
+  dashboardOpenRecords: "रिकॉर्ड खोलें",
+  dashboardStatusProcessed: "प्रसंस्कृत",
+  dashboardStatusReview: "समीक्षा चाहिए",
+  dashboardStatusUploaded: "अपलोड हुआ",
+  dashboardStatusExtracting: "डॉक्यूमेंट पढ़ा जा रहा है",
+  dashboardStatusClassifying: "प्रकार पहचाना जा रहा है",
+  dashboardStatusOrganizing: "व्यवस्थित किया जा रहा है",
+  onboardingTitle: "अपने स्वास्थ्य स्थान में स्वागत है",
+  onboardingIntro:
+    "शुरू करने के लिए अपना पहला मेडिकल रिकॉर्ड जोड़ें। Healthfolio रिपोर्ट, पर्चे और स्कैन को एक निजी, सत्यापित स्थान में व्यवस्थित करता है।",
+  onboardingCanAdd: "आप जोड़ सकते हैं:",
+  onboardingLab: "लैब रिपोर्ट",
+  onboardingRx: "पर्चे",
+  onboardingScans: "स्कैन इमेज",
+  onboardingDischarge: "डिस्चार्ज सारांश",
+  onboardingUpload: "रिकॉर्ड स्कैन या अपलोड करें",
+  onboardingCreate: "बस मेरा स्थान बनाएँ",
+  onboardingPreparing: "तैयार हो रहा है…",
+  onboardingCreating: "बनाया जा रहा है…",
+  onboardingPrivacy:
+    "आपके डॉक्यूमेंट आपके खाते के लिए निजी रहते हैं और केवल आपके Healthfolio के लिए प्रसंस्कृत होते हैं।",
+  dashboardLoadFailTitle: "अभी आपका स्वास्थ्य स्थान लोड नहीं हो सका",
+  dashboardLoadFailHint:
+    "यह आमतौर पर कनेक्शन की समस्या है। आपके रिकॉर्ड सुरक्षित हैं — कुछ देर में पुनः प्रयास करें।",
+  tryAgain: "फिर प्रयास करें",
 };
 
 const or: Dict = {
@@ -379,6 +596,82 @@ const or: Dict = {
   languageSettingsHint: "ଆପ ପାଇଁ ଭାଷା ବାଛନ୍ତୁ।",
   languageSyncNote: "ଆପଣଙ୍କ ଭାଷା ପସନ୍ଦ ଏହି ଡିଭାଇସରେ ସଂରକ୍ଷିତ ହୁଏ ଓ ସଂଯୋଗ ମିଳିଲେ ସିଙ୍କ ହୋଇଯାଏ।",
   cancel: "ବାତିଲ କରନ୍ତୁ",
+
+  // Rural-first home actions
+  homeChooseAction: "ଆପଣ କ'ଣ କରିବାକୁ ଚାହୁଁଛ?",
+  homeTalkToDoctor: "ଡାକ୍ତରଙ୍କ ସହ କଥା ହୁଅନ୍ତୁ",
+  homeTalkToDoctorHint: "ଆପଣଙ୍କ ସମସ୍ୟା କହନ୍ତୁ ଏବଂ ଯତ୍ନ ସହାୟତା ପାନ୍ତୁ",
+  homeCheckSymptoms: "ଲକ୍ଷଣ ଯାଞ୍ଚ କରନ୍ତୁ",
+  homeCheckSymptomsHint: "ପଦକ୍ଷେପ ଦର ପଦକ୍ଷେପ ଜାଣନ୍ତୁ କେତେ ଜଲ୍ଦି ଦେଖାଯିବା ଆବଶ୍ୟକ",
+  homeCheckMedicine: "ଔଷଧ ଯାଞ୍ଚ କରନ୍ତୁ",
+  homeCheckMedicineHint: "ଯାତ୍ରା ଆଗରୁ ଜାଣନ୍ତୁ ଔଷଧ ନିକଟରେ ମିଳିବ କି ନାହିଁ",
+  homeMyHealth: "ମୋର ସ୍ୱାସ୍ଥ୍ୟ",
+  homeMyHealthHint: "ଆପଣଙ୍କ ରେକର୍ଡ, ଟେଷ୍ଟ ଏବଂ ଅଫଲାଇନ୍ ହେଲ୍ଥ୍ କାର୍ଡ",
+
+  // Dashboard content
+  dashboardUploadTitle: "ରେକର୍ଡ ସ୍କାନ୍ କିମ୍ବା ଅପଲୋଡ୍ କରନ୍ତୁ",
+  dashboardUploadHint:
+    "ରିପୋର୍ଟର ଫୋଟୋ ନିଅନ୍ତୁ କିମ୍ବା ଫାଇଲ୍ ଅପଲୋଡ୍ କରନ୍ତୁ — Healthfolio ଏହା ପଢ଼ି ପୁଷ୍ଟି ପାଇଁ ଦେଖାଏ।",
+  dashboardNeedsAttention: "ଆପଣଙ୍କ ଦୃଷ୍ଟି ଆବଶ୍ୟକ",
+  dashboardReview: "ଦେଖନ୍ତୁ",
+  dashboardLatestInsight: "ନୂତନ ଯାଞ୍ଚାଯାଇଥିବା ତଥ୍ୟ",
+  dashboardNoInsightsTitle: "ଏହିସମୟ କୌଣସି ଯାଞ୍ଚାଯାଇଥିବା ସ୍ୱାସ୍ଥ୍ୟ ତଥ୍ୟ ନାହିଁ",
+  dashboardNoInsightsHint:
+    "Healthfolio ଦ୍ୱାରା ପଢ଼ାଯାଇଥିବା ତଥ୍ୟ ଆପଣ ଯତ୍ନରେ ପୁଷ୍ଟି କଲେ ଆପଣଙ୍କ ଟ୍ରେଣ୍ଡ ଏବଂ ଟାଇମଲାଇନ୍ ଏଠାରେ ଦେଖାଯିବ।",
+  dashboardEmptyHint:
+    "ପ୍ରଥମ ମେଡିକାଲ୍ ରେକର୍ଡ ଯୋଗ କରି ସ୍ୱାସ୍ଥ୍ୟ ଟାଇମଲାଇନ୍ ତିଆରି କରନ୍ତୁ।",
+  dashboardRecordsOne: "ଏକଟି ରେକର୍ଡ ଏବେ ସଜାଯାଇଛି। ସ୍ଥିତି ଏଠାରେ ଦେଖନ୍ତୁ।",
+  dashboardRecordsMany:
+    "{count} ଟି ରେକର୍ଡ ଏବେ ସଜାଯାଇଛି। ସ୍ଥିତି ଏଠାରେ ଦେଖନ୍ତୁ।",
+  dashboardAttentionDocsOne: "ଗୋଟିଏ ଡକ୍ୟୁମେଣ୍ଟରେ କିଛି ବିବରଣ ଅନିଶ୍ଚିତ",
+  dashboardAttentionDocsMany: "{count} ଟି ଡକ୍ୟୁମେଣ୍ଟରେ କିଛି ବିବରଣ ଅନିଶ୍ଚିତ",
+  dashboardAttentionDocsHint: "ଝଟପଟି ଦେଖିଲେ ଟାଇମଲାଇନ୍ ସଠିକ୍ ରହେ।",
+  dashboardAttentionMeasurementsOne: "ଗୋଟିଏ ମାପ ଆପଣଙ୍କ ପୁଷ୍ଟି ପାଇଁ ଅପେକ୍ଷାରେ",
+  dashboardAttentionMeasurementsMany:
+    "{count} ଟି ମାପ ଆପଣଙ୍କ ପୁଷ୍ଟି ପାଇଁ ଅପେକ୍ଷାରେ",
+  dashboardAttentionMeasurementsHint: "ପୁଷ୍ଟ ହୋଇଥିବା ମାନ ଆପଣଙ୍କ ଟ୍ରେଣ୍ଡକୁ ବିଶ୍ୱସନୀୟ କରେ।",
+  dashboardAttentionPaused: "ପ୍ରସ୍ତୁତି ଆପଣଙ୍କ ଇନପୁଟ ପାଇଁ ଅଟକିଛି",
+  dashboardAttentionPausedHint: "ଜାରି ରଖିବା ପାଇଁ ଖୋଲା ଆଇଟମ ସମାଧାନ କରନ୍ତୁ।",
+  dashboardRecentActivity: "ସାମ୍ପ୍ରତିକ ଗତିବିଧି",
+  dashboardViewAllRecords: "ସବୁ ରେକର୍ଡ ଦେଖନ୍ତୁ",
+  dashboardRecentEmpty:
+    "ଆପଣଙ୍କ ସଜାଯାଇଥିବା ରେକର୍ଡ ପ୍ରଥମ ଅପଲୋଡ୍ ପ୍ରସ୍ତୁତି ପରେ ଏଠାରେ ଦେଖାଯିବ।",
+  dashboardNoDocuments: "ଏହିସମୟ କୌଣସି ଡକ୍ୟୁମେଣ୍ଟ ନାହିଁ।",
+  dashboardProcessingEmpty:
+    "ପ୍ରସ୍ତୁତି ଗତିବିଧି ପ୍ରଥମ ଅପଲୋଡ୍ ପରେ ଦେଖାଯିବ।",
+  dashboardRunComplete: "ସମ୍ପୂର୍ଣ୍ଣ",
+  dashboardRunNeedsAttention: "ଦୃଷ୍ଟି ଆବଶ୍ୟକ",
+  dashboardRunWaiting: "ଆପଣଙ୍କ ଅପେକ୍ଷାରେ",
+  dashboardRunProcessing: "ପ୍ରସ୍ତୁତି",
+  dashboardPointsOne: "ଗୋଟିଏ ବିନ୍ଦୁ",
+  dashboardPointsMany: "{count} ଟି ବିନ୍ଦୁ",
+  dashboardEvidenceNote:
+    "ସ୍ରୋତ ଡକ୍ୟୁମେଣ୍ଟ · ପୃଷ୍ଠା {page}। ସମ୍ପୂର୍ଣ୍ଣ ଡକ୍ୟୁମେଣ୍ଟ ଦେଖିବା ପାଇଁ ରେକର୍ଡ ପୃଷ୍ଠା ଖୋଲନ୍ତୁ।",
+  dashboardOpenRecords: "ରେକର୍ଡ ଖୋଲନ୍ତୁ",
+  dashboardStatusProcessed: "ପ୍ରସ୍ତୁତ",
+  dashboardStatusReview: "ସମୀକ୍ଷା ଆବଶ୍ୟକ",
+  dashboardStatusUploaded: "ଅପଲୋଡ୍ ହୋଇଛି",
+  dashboardStatusExtracting: "ଡକ୍ୟୁମେଣ୍ଟ ପଢ଼ାଯାଉଛି",
+  dashboardStatusClassifying: "ପ୍ରକାର ଚିହ୍ନଟ ହେଉଛି",
+  dashboardStatusOrganizing: "ସଜାଯାଉଛି",
+  onboardingTitle: "ଆପଣଙ୍କ ସ୍ୱାସ୍ଥ୍ୟ ସ୍ଥାନକୁ ସ୍ୱାଗତ",
+  onboardingIntro:
+    "ଆରମ୍ଭ କରିବା ପାଇଁ ପ୍ରଥମ ମେଡିକାଲ୍ ରେକର୍ଡ ଯୋଗ କରନ୍ତୁ। Healthfolio ରିପୋର୍ଟ, ପ୍ରେସ୍କ୍ରିପ୍ସନ୍ ଏବଂ ସ୍କାନ୍କୁ ଗୋଟିଏ ନିଜି, ଯାଞ୍ଚାଯାଇଥିବା ସ୍ଥାନରେ ସଜାଏ।",
+  onboardingCanAdd: "ଆପଣ ଯୋଗ କରପାରିବେ:",
+  onboardingLab: "ଲ୍ୟାବ୍ ରିପୋର୍ଟ",
+  onboardingRx: "ପ୍ରେସ୍କ୍ରିପ୍ସନ୍",
+  onboardingScans: "ସ୍କାନ୍ ଇମେଜ୍",
+  onboardingDischarge: "ଡିସ୍ଚାର୍ଜ୍ ସାରାଂଶ",
+  onboardingUpload: "ରେକର୍ଡ ସ୍କାନ୍ କିମ୍ବା ଅପଲୋଡ୍ କରନ୍ତୁ",
+  onboardingCreate: "କେବଳ୍ ମୋର ସ୍ଥାନ ତିଆରି କରନ୍ତୁ",
+  onboardingPreparing: "ତିଆରି ହେଉଛି…",
+  onboardingCreating: "ତିଆରି ହେଉଛି…",
+  onboardingPrivacy:
+    "ଆପଣଙ୍କ ଡକ୍ୟୁମେଣ୍ଟ ଆପଣଙ୍କ ଖାତା ପାଇଁ ନିଜି ରହେ ଏବଂ କେବଳ୍ ଆପଣଙ୍କ Healthfolio ପାଇଁ ପ୍ରସ୍ତୁତ ହୁଏ।",
+  dashboardLoadFailTitle: "ଏହିସମୟ ଆପଣଙ୍କ ସ୍ୱାସ୍ଥ୍ୟ ସ୍ଥାନ ଲୋଡ୍ ହୋଇପାରିଲା ନାହିଁ",
+  dashboardLoadFailHint:
+    "ଏହା ସାଧାରଣତଃ ସଂଯୋଗ ସମସ୍ୟା। ଆପଣଙ୍କ ରେକର୍ଡ ସୁରକ୍ଷିତ — ଏକ ମିନିଟ ପରେ ପୁଣି ପ୍ରୟାସ କରନ୍ତୁ।",
+  tryAgain: "ପୁଣି ପ୍ରୟାସ କରନ୍ତୁ",
 };
 
 const DICTIONARIES: Record<Language, Dict> = { en, hi, or };

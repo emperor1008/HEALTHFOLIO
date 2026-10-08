@@ -66,6 +66,15 @@ interface EngineDeps {
   network: NetworkMonitor;
   handlers: SyncHandlers;
   events?: SyncEngineEvents;
+  /**
+   * Resolves the current session's user id (Better Auth). Items are stamped
+   * with this on enqueue; only items matching the CURRENT owner sync.
+   * Returns null when no session exists — items then carry a safe pre-auth
+   * marker and stay strictly local until claimed by the same user.
+   */
+  getOwnerId?: () => string | null;
+  /** Whether an item may sync under the current session owner. */
+  canSyncItem?: (item: QueueItem, ownerId: string | null) => boolean;
 }
 
 /** Generate UUIDs with a fallback for older browsers. */
@@ -83,6 +92,8 @@ export function generateUuid(): string {
 
 export function createSyncEngine(deps: EngineDeps): SyncEngine {
   const { store, network, handlers, events } = deps;
+  const getOwnerId = deps.getOwnerId ?? (() => null);
+  const maySync = deps.canSyncItem ?? (() => true);
   const listeners = new Set<(items: QueueItem[]) => void>();
 
   let syncing = false;
@@ -169,10 +180,14 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
       // A manual pass overrides backoff windows: the user explicitly asked to
       // sync now, so waiting out an exponential backoff would feel broken.
       const ignoreBackoff = reason === "manual";
+      const ownerId = getOwnerId();
       for (;;) {
         if (!network.getState().online && reason !== "manual") break;
         const all = await store.getAll();
-        const due = selectDueItems(all, new Date(), { ignoreBackoff });
+        // Ownership gate: items bound to another user (or an unclaimed
+        // pre-auth marker) are never synced by this session.
+        const syncable = all.filter((item) => maySync(item, ownerId));
+        const due = selectDueItems(syncable, new Date(), { ignoreBackoff });
         if (due.length === 0) break;
         await runItem(due[0]);
       }
@@ -199,6 +214,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
   const engine: SyncEngine = {
     async enqueue(actionType, payload, options) {
       const now = new Date();
+      // Ownership stamping: prefer the live session user; otherwise a safe
+      // pre-auth marker so nothing can attach to a future account.
+      const ownerId = getOwnerId() ?? `pre-auth:${generateUuid()}`;
       const item: QueueItem = {
         id: generateUuid(),
         idempotencyKey: generateUuid(),
@@ -209,6 +227,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         state: "pending",
         updatedAt: now.toISOString(),
         blobKey: options?.blob ? `blob-${generateUuid()}` : undefined,
+        ownerId,
       };
       if (options?.blob && item.blobKey) {
         await store.put(item);

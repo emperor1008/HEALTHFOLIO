@@ -23,23 +23,34 @@ test.describe("App shell", () => {
     }
   });
 
-  test("offline fallback page exists and renders", async ({ page }) => {
+  test("offline fallback page renders its own content", async ({ page }) => {
+    // maxRedirects: 0 — if the auth gate ever swallows /offline again, this
+    // must fail instead of silently passing on the sign-in page.
+    const res = await page.request.get("/offline", { maxRedirects: 0 });
+    expect(res.status()).toBe(200);
     await page.goto("/offline");
-    await expect(page.locator("body")).toBeVisible();
-    const body = await page.locator("body").innerText();
-    expect(body.length).toBeGreaterThan(0);
+    await expect(page.getByRole("heading", { name: /offline/i })).toBeVisible();
   });
 
-  test("PWA manifest is served and names the app", async ({ page }) => {
-    const res = await page.request.get("/manifest.webmanifest");
-    expect(res.ok()).toBe(true);
+  test("PWA manifest is served directly and parses as JSON", async ({ page }) => {
+    const res = await page.request.get("/manifest.webmanifest", {
+      maxRedirects: 0,
+    });
+    expect(res.status()).toBe(200);
+    expect(res.headers()["content-type"] ?? "").toContain("json");
     const manifest = (await res.json()) as { name?: string; icons?: unknown[] };
     expect(manifest.name).toBeTruthy();
     expect(Array.isArray(manifest.icons)).toBe(true);
     expect(manifest.icons!.length).toBeGreaterThan(0);
   });
 
-  test("service worker file is served (PWA foundation present)", async ({ page }) => SW_SMOKE);
+  test("service worker is served directly (a redirect would disable offline)", async ({
+    page,
+  }) => {
+    const res = await page.request.get("/sw.js", { maxRedirects: 0 });
+    expect(res.status()).toBe(200);
+    expect(await res.text()).toContain("self.addEventListener");
+  });
 
   test("protected surfaces render honest empty state (no fabricated rows)", async ({
     page,
@@ -62,9 +73,3 @@ test.describe("App shell", () => {
     expect(overflow, "horizontal overflow at 320px").toBe(false);
   });
 });
-
-async function SW_SMOKE({ page }: { page: import("@playwright/test").Page }) {
-  const res = await page.request.get("/sw.js");
-  expect(res.ok()).toBe(true);
-  expect(await res.text()).toContain("cache");
-}

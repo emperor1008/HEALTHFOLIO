@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { getUser } from "@/lib/auth-helpers";
 import { auditSignalEvent } from "@/lib/signals/service";
 import { z } from "zod";
@@ -28,7 +28,7 @@ const DUPLICATE_WINDOW_MS = 4000;
  */
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
+    const supabase = createClient();
     const user = await getUser();
     if (!user) {
       return NextResponse.json(

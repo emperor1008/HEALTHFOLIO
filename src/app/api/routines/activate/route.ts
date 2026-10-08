@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 
 interface ActivatePlanRequest {
   planId: string;
@@ -19,7 +19,7 @@ interface ActivatePlanRequest {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const {
     data: { user },

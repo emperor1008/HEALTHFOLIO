@@ -1,113 +1,80 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
 /**
- * Route proxy (Next.js 16 convention; formerly middleware.ts) that protects
- * application routes using Supabase anonymous auth.
+ * Route proxy (Next.js 16 convention) guarding the Better Auth session.
  *
- * Flow:
- * - "/" redirects to bootstrap which creates an anonymous session
- * - Bootstrap is public (no session required)
- * - Protected pages require a valid Supabase session
- * - Missing session → redirect to bootstrap (not a login page)
+ * - Uses Better Auth's cookie-presence check (fast, no DB call). Full session
+ *   validation, role checks, ownership, and consent happen in every server
+ *   page/route — this proxy is only the outer gate.
+ * - Signed-out users hitting a protected route go to /sign-in (no anonymous
+ *   bootstrap anymore).
+ * - Signed-in users never see /sign-in or /register again.
+ * - The cookie presence check is deliberately optimistic: a stale cookie
+ *   simply renders an app shell whose data calls 401 and surfaces the calm
+ *   signed-out state; it can never grant access.
+ * - Public static assets (service worker, PWA manifest, icons) are excluded in
+ *   the matcher below. Gating them broke the offline layer in production: the
+ *   browser refuses a service worker script behind a redirect, so registration
+ *   silently failed and the whole offline cache never installed.
  */
 
+// Exported for the regression test that guards the PWA asset routes.
+export const PUBLIC_ROUTES = [
+  "/",
+  "/sign-in",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/doctor/apply",
+  "/access-denied",
+  // The offline fallback must render for signed-out visitors too: the
+  // service worker precaches it, and a redirect would cache sign-in HTML
+  // as the offline page.
+  "/offline",
+];
+
+const AUTH_PAGES = ["/sign-in", "/register", "/forgot-password", "/reset-password"];
+
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  const { pathname } = request.nextUrl;
 
-  // If Supabase is not configured, allow all requests through
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return response;
+  // API routes answer for themselves: every route handler verifies the Better
+  // Auth session server-side and returns JSON 401/403/503 (never a redirect).
+  // Redirecting /api/* to an HTML sign-in page would break the offline sync
+  // engine and every programmatic client — and Better Auth's own credential
+  // endpoints must be reachable by signed-out users.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
   }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          response.cookies.set({ name, value: "", ...options });
-        },
-      },
+  const hasSession = Boolean(getSessionCookie(request));
+
+  const isAuthPage = AUTH_PAGES.some((p) => pathname === p);
+  const isPublic = PUBLIC_ROUTES.some((p) => pathname === p) || isAuthPage;
+
+  if (isPublic) {
+    // Signed-in users skip the auth pages.
+    if (hasSession && isAuthPage) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  // Public routes that don't need a session
-  const publicRoutes = ["/", "/auth/bootstrap", "/auth/callback"];
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith("/auth/")
-  );
-
-  // Root "/" always goes to bootstrap to check/create session
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL("/auth/bootstrap", request.url));
+    return NextResponse.next();
   }
 
-  // Protected routes require a valid session
-  const protectedPrefixes = [
-    "/dashboard",
-    "/documents",
-    "/timeline",
-    "/preparation",
-    "/prepare",
-    "/runs",
-    "/settings",
-    "/consent",
-    "/review",
-    "/ask",
-    "/records",
-    "/health-tracking",
-    "/medicines",
-    "/routine",
-    // Part 1–5 surfaces (audit fix: these were missing, letting unauthenticated
-    // visitors render app shells that then failed per-request with 401s).
-    "/care-requests",
-    "/consultations",
-    "/pharmacy",
-    "/staff",
-    "/reliability",
-  ];
-  const isProtectedRoute = protectedPrefixes.some((prefix) =>
-    pathname.startsWith(prefix)
-  );
-
-  // Unauthenticated user on protected route → bootstrap (creates anonymous session)
-  if (isProtectedRoute && !user) {
-    const redirectUrl = new URL("/auth/bootstrap", request.url);
+  // Every other route requires a session cookie.
+  if (!hasSession) {
+    const redirectUrl = new URL("/sign-in", request.url);
     redirectUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Never gate static public assets. `/sw.js` in particular MUST be served
+    // directly: a redirect makes service-worker registration fail outright.
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|branding/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|webmanifest)$).*)",
   ],
 };

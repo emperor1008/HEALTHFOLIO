@@ -14,34 +14,32 @@ npm run dev               # http://localhost:3000
 
 ## 1. Configure a clinician
 
-Roles are stored server-side in the `user_roles` registry (migration 026;
-RLS-enabled with **no client policies** — only server code can read/write
-it). The old `STAFF_ROLE_ADMIN_KEY` header endpoint was removed; there is no
-browser path that can write roles.
+Identity is owned by Better Auth (migration 027: canonical `user`/`session`/
+`account`/`verification` tables in the same PostgreSQL database, connected via
+server-only `DATABASE_URL`). Roles are stored server-side in the `app_roles`
+registry (RLS-enabled with **no client policies** — only server code can
+read/write it). The old `STAFF_ROLE_ADMIN_KEY` header endpoint was removed;
+there is no browser path that can write roles, and public registration creates
+only the `patient` role.
 
 1. First-time platform admin (local machine only):
 
 ```bash
-npm run staff:bootstrap -- --role platform_admin --user <admin-user-uuid> --confirm
+node scripts/admin-bootstrap.mjs --email <existing-user-email> --confirm
 ```
 
    The script requires `SUPABASE_SERVICE_ROLE_KEY` and
-   `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`, refuses to write without
-   `--confirm`, is idempotent, and prints only truncated IDs — never secrets.
-   Without `--confirm` it runs as a dry-run.
+   `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`, verifies the user exists in
+   Better Auth, grants the `platform_admin` role in `app_roles`, refuses to
+   write without `--confirm`, is idempotent, and prints only truncated IDs —
+   never secrets. Without `--confirm` it runs as a dry-run. The legacy
+   `npm run staff:bootstrap` remains available for the pre-Better-Auth
+   `user_roles` registry (migration 026) during transition.
 
-2. Assign a clinician (or coordinator / pharmacy operator):
-
-```bash
-npm run staff:bootstrap -- --role clinician --user <user-uuid> \
-  --scope <facility-uuid> [--actor <admin-user-uuid>] --confirm
-```
-
-   Roles: `platform_admin`, `facility_coordinator`, `clinician`,
-   `pharmacy_manager`, `pharmacy_operator`. Scoped roles require `--scope`
-   (facility id for clinician/coordinator, pharmacy id for pharmacy roles)
-   and are mirrored into `facility_memberships` / `pharmacy_memberships` so
-   existing RLS scoping keeps working.
+2. Doctor applications: users self-apply at `/doctor/apply` and become
+   `doctor_pending` (status: `Application received`). An authorized
+   `platform_admin` reviews and approves/declines them in the platform-admin
+   console (`/admin/platform`) — only then does the role become `doctor`.
 
 3. Ongoing management happens in the protected console at `/staff/admin`
    (assign, suspend, reinstate, revoke; every action audited to

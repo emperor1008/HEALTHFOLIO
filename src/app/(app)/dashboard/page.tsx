@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import { createClient } from "@/lib/supabase/browser";
 import {
   useHealthSpace,
   fetchHealthOverview,
@@ -24,6 +23,9 @@ import { HealthSignalsSection } from "@/components/signals/HealthSignalsSection"
 import { SyncStatus } from "@/components/offline/SyncStatus";
 import { FirstUseLanguageChooser } from "@/components/offline/FirstUseLanguageChooser";
 import { useLanguage } from "@/lib/i18n/language-context";
+import type { Dict, Language } from "@/lib/i18n";
+import { VoiceListen } from "@/components/voice/VoiceListen";
+import { VoiceAssistant } from "@/components/voice/VoiceAssistant";
 
 interface Overview {
   documents: Array<{
@@ -54,20 +56,27 @@ type PageState =
   | { kind: "onboarding"; portfolio: Portfolio | null }
   | { kind: "ready"; portfolio: Portfolio; overview: Overview };
 
-const STATUS_LABELS: Record<string, { label: string; variant: "verified" | "review" | "processing" | "failed" | "default" }> = {
-  completed: { label: "Processed", variant: "verified" },
-  review_required: { label: "Review needed", variant: "review" },
-  failed: { label: "Needs attention", variant: "failed" },
-  uploaded: { label: "Uploaded", variant: "processing" },
-  extracting: { label: "Reading document", variant: "processing" },
-  classifying: { label: "Identifying type", variant: "processing" },
-  organizing: { label: "Organizing", variant: "processing" },
+const STATUS_LABELS: Record<string, { key: keyof Dict; variant: "verified" | "review" | "processing" | "failed" | "default" }> = {
+  completed: { key: "dashboardStatusProcessed", variant: "verified" },
+  review_required: { key: "dashboardStatusReview", variant: "review" },
+  failed: { key: "dashboardRunNeedsAttention", variant: "failed" },
+  uploaded: { key: "dashboardStatusUploaded", variant: "processing" },
+  extracting: { key: "dashboardStatusExtracting", variant: "processing" },
+  classifying: { key: "dashboardStatusClassifying", variant: "processing" },
+  organizing: { key: "dashboardStatusOrganizing", variant: "processing" },
 };
 
-function formatShortDate(dateStr: string | null): string {
+/** Date formatting follows the patient's language, not a fixed locale. */
+const DATE_LOCALES: Record<Language, string> = {
+  en: "en-IN",
+  hi: "hi-IN",
+  or: "or-IN",
+};
+
+function formatShortDate(dateStr: string | null, language: Language): string {
   if (!dateStr) return "";
   try {
-    return new Date(dateStr).toLocaleDateString("en-IN", {
+    return new Date(dateStr).toLocaleDateString(DATE_LOCALES[language], {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -81,12 +90,24 @@ export default function DashboardPage() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const healthSpace = useHealthSpace();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [pageState, setPageState] = useState<PageState>({ kind: "loading" });
   const [creating, setCreating] = useState(false);
   const [creatingAndUploading, setCreatingAndUploading] = useState(false);
   const [evidenceFor, setEvidenceFor] = useState<{ documentId: string; pageNumber: number } | null>(null);
+  const evidenceDialogRef = useRef<HTMLDivElement>(null);
+
+  // Evidence dialog: Escape closes, focus moves in on open.
+  useEffect(() => {
+    if (!evidenceFor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setEvidenceFor(null);
+    };
+    document.addEventListener("keydown", onKey);
+    evidenceDialogRef.current?.focus();
+    return () => document.removeEventListener("keydown", onKey);
+  }, [evidenceFor]);
 
   const loadOverview = useCallback(async (portfolio: Portfolio) => {
     const overview = await fetchHealthOverview(portfolio.id);
@@ -190,10 +211,10 @@ export default function DashboardPage() {
       <PageTransition>
         <EmptyState
           icon="🌤"
-          title="We couldn't load your health space right now"
-          description="This is usually a connection issue. Your records are safe — try again in a moment."
+          title={t("dashboardLoadFailTitle")}
+          description={t("dashboardLoadFailHint")}
           action={{
-            label: "Try again",
+            label: t("tryAgain"),
             onClick: () => {
               setPageState({ kind: "loading" });
               healthSpace.status === "failure" ? healthSpace.retry() : window.location.reload();
@@ -229,21 +250,19 @@ export default function DashboardPage() {
               </div>
 
               <h1 className="text-2xl font-semibold text-text-primary md:text-3xl">
-                Welcome to your health space
+                {t("onboardingTitle")}
               </h1>
               <p className="mx-auto mt-3 max-w-md text-text-secondary">
-                Build your health timeline by adding your first medical record.
-                Healthfolio organizes reports, prescriptions and scans into one
-                private, verified space.
+                {t("onboardingIntro")}
               </p>
             </div>
 
             <div className="mt-8 rounded-card border border-sage-border bg-sage-surface p-6 text-center">
               <p className="text-sm font-medium text-text-primary">
-                You can add:
+                {t("onboardingCanAdd")}
               </p>
               <div className="mt-3 flex flex-wrap justify-center gap-2">
-                {["Lab reports", "Prescriptions", "Scan images", "Discharge summaries"].map((label) => (
+                {[t("onboardingLab"), t("onboardingRx"), t("onboardingScans"), t("onboardingDischarge")].map((label) => (
                   <span
                     key={label}
                     className="inline-flex items-center rounded-full border border-sage-border bg-surface px-3 py-1.5 text-xs text-text-secondary"
@@ -257,28 +276,27 @@ export default function DashboardPage() {
                 <Button
                   size="lg"
                   loading={creatingAndUploading}
-                  loadingText="Preparing…"
+                  loadingText={t("onboardingPreparing")}
                   disabled={creating}
                   onClick={() => createPortfolio(true)}
                 >
-                  Scan or upload a record
+                  {t("onboardingUpload")}
                 </Button>
                 <Button
                   variant="secondary"
                   size="lg"
                   loading={creating && !creatingAndUploading}
-                  loadingText="Creating…"
+                  loadingText={t("onboardingCreating")}
                   disabled={creating}
                   onClick={() => createPortfolio(false)}
                 >
-                  Just create my space
+                  {t("onboardingCreate")}
                 </Button>
               </div>
             </div>
 
             <p className="mt-6 text-center text-xs text-text-secondary/80">
-              Your documents remain private to your account and are processed
-              only for your Healthfolio.
+              {t("onboardingPrivacy")}
             </p>
           </motion.div>
         </div>
@@ -306,15 +324,25 @@ export default function DashboardPage() {
   if (docsNeedingReview.length > 0) {
     attentionItems.push({
       href: "/review",
-      title: `${docsNeedingReview.length} document${docsNeedingReview.length !== 1 ? "s" : ""} with uncertain details`,
-      description: "A quick look keeps your timeline accurate.",
+      title:
+        docsNeedingReview.length === 1
+          ? t("dashboardAttentionDocsOne")
+          : t("dashboardAttentionDocsMany", {
+              count: docsNeedingReview.length,
+            }),
+      description: t("dashboardAttentionDocsHint"),
     });
   }
   if (overview.pendingMeasurements > 0) {
     attentionItems.push({
       href: "/health-tracking",
-      title: `${overview.pendingMeasurements} measurement${overview.pendingMeasurements !== 1 ? "s" : ""} awaiting your confirmation`,
-      description: "Confirmed values make your trends reliable.",
+      title:
+        overview.pendingMeasurements === 1
+          ? t("dashboardAttentionMeasurementsOne")
+          : t("dashboardAttentionMeasurementsMany", {
+              count: overview.pendingMeasurements,
+            }),
+      description: t("dashboardAttentionMeasurementsHint"),
     });
   }
   if (
@@ -322,8 +350,8 @@ export default function DashboardPage() {
   ) {
     attentionItems.push({
       href: "/review",
-      title: "Processing is paused for your input",
-      description: "Resolve the open items to continue organizing.",
+      title: t("dashboardAttentionPaused"),
+      description: t("dashboardAttentionPausedHint"),
     });
   }
 
@@ -347,24 +375,137 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-semibold text-text-primary md:text-3xl">
               {t("welcome")}
             </h1>
-            <p className="mt-2 max-w-lg text-text-secondary">
-              {overview.documents.length === 0
-                ? "Build your health timeline by adding your first medical record."
-                : `${overview.documents.length} record${overview.documents.length !== 1 ? "s" : ""} organized so far. Here's where things stand.`}
-            </p>
+            <div className="mt-2 flex max-w-lg items-start gap-2 text-text-secondary">
+              <p>
+                {overview.documents.length === 0
+                  ? t("dashboardEmptyHint")
+                  : overview.documents.length === 1
+                    ? t("dashboardRecordsOne")
+                    : t("dashboardRecordsMany", {
+                        count: overview.documents.length,
+                      })}
+              </p>
+              <VoiceListen
+                text={
+                  `${t("welcome")}. ${
+                    overview.documents.length === 0
+                      ? t("dashboardEmptyHint")
+                      : overview.documents.length === 1
+                        ? t("dashboardRecordsOne")
+                        : t("dashboardRecordsMany", {
+                            count: overview.documents.length,
+                          })
+                  }`
+                }
+                language={language}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Primary capture CTA */}
+        {/* Primary care actions — rural-first hierarchy:
+            Talk to a Doctor → Check My Symptoms → Check Medicine → My Health.
+            Icon + short label + plain-language hint; upload stays secondary. */}
+        <section aria-label={t("homeChooseAction")}>
+          <h2 className="sr-only">{t("homeChooseAction")}</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Link
+              href="/care-requests"
+              className="flex min-h-[72px] items-center gap-4 rounded-2xl border border-sage-border bg-sage-surface px-5 py-4 transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M21 12a8 8 0 01-8 8H4l2.3-2.9A8 8 0 1121 12z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 10.2v3.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-semibold text-text-primary">
+                  {t("homeTalkToDoctor")}
+                </span>
+                <span className="mt-0.5 block text-sm text-text-secondary">
+                  {t("homeTalkToDoctorHint")}
+                </span>
+              </span>
+              <span aria-hidden="true" className="ml-auto text-primary">→</span>
+            </Link>
+            <Link
+              href="/symptoms"
+              className="flex min-h-[72px] items-center gap-4 rounded-2xl border border-sage-border bg-sage-surface px-5 py-4 transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 20s-6.5-4-6.5-9A3.6 3.6 0 0112 7.6 3.6 3.6 0 0118.5 11c0 5-6.5 9-6.5 9z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M6.5 12h3l1.5-3 2 5 1.5-2h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-semibold text-text-primary">
+                  {t("homeCheckSymptoms")}
+                </span>
+                <span className="mt-0.5 block text-sm text-text-secondary">
+                  {t("homeCheckSymptomsHint")}
+                </span>
+              </span>
+              <span aria-hidden="true" className="ml-auto text-primary">→</span>
+            </Link>
+            <Link
+              href="/medicines/pharmacy"
+              className="flex min-h-[72px] items-center gap-4 rounded-2xl border border-sage-border bg-sage-surface px-5 py-4 transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M10.2 21a4.3 4.3 0 01-6.1-6.1l8.8-8.8a4.3 4.3 0 016.1 6.1l-8.8 8.8z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M8.5 9.5l6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-semibold text-text-primary">
+                  {t("homeCheckMedicine")}
+                </span>
+                <span className="mt-0.5 block text-sm text-text-secondary">
+                  {t("homeCheckMedicineHint")}
+                </span>
+              </span>
+              <span aria-hidden="true" className="ml-auto text-primary">→</span>
+            </Link>
+            <Link
+              href="/health-card"
+              className="flex min-h-[72px] items-center gap-4 rounded-2xl border border-sage-border bg-sage-surface px-5 py-4 transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+                  <path d="M3.5 9.5h17" stroke="currentColor" strokeWidth="1.6" />
+                  <path d="M7 14h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-semibold text-text-primary">
+                  {t("homeMyHealth")}
+                </span>
+                <span className="mt-0.5 block text-sm text-text-secondary">
+                  {t("homeMyHealthHint")}
+                </span>
+              </span>
+              <span aria-hidden="true" className="ml-auto text-primary">→</span>
+            </Link>
+          </div>
+        </section>
+
+        {/* Voice assistant — speaks, understands, and drives the
+            app above through the same routes a tap would use. */}
+        <VoiceAssistant />
+
+        {/* Document capture — secondary action, never the primary CTA */}
         <Card padding="lg" className="border-sage-border bg-sage-surface">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-text-primary">
-                Scan or upload a record
+                {t("dashboardUploadTitle")}
               </h2>
               <p className="mt-1 max-w-md text-sm text-text-secondary">
-                Take a photo of a report or upload a file — Healthfolio reads
-                it, organizes it, and shows you what to confirm.
+                {t("dashboardUploadHint")}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -373,15 +514,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </Card>
-
-        {/* Care requests shortcut */}
-        <Link
-          href="/care-requests"
-          className="flex min-h-[56px] items-center justify-between rounded-2xl border border-sage-border bg-sage-surface px-5 py-3 transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          <span className="font-medium text-text-primary">{t("careRequestsShortcut")}</span>
-          <span aria-hidden="true" className="text-primary">→</span>
-        </Link>
 
         {/* Health Signals (compact, max 3 open) */}
         <HealthSignalsSection
@@ -405,7 +537,7 @@ export default function DashboardPage() {
                     <path d="M6 2.5v3.5M6 8.6v.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
                 </span>
-                Needs your attention
+                {t("dashboardNeedsAttention")}
               </h2>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -415,7 +547,7 @@ export default function DashboardPage() {
                     <p className="font-medium text-text-primary">{item.title}</p>
                     <p className="mt-1 text-sm text-text-secondary">{item.description}</p>
                     <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta">
-                      Review
+                      {t("dashboardReview")}
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                         <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
@@ -430,18 +562,17 @@ export default function DashboardPage() {
         {/* Latest verified insight / empty state */}
         <section aria-labelledby="insight-heading">
           <h2 id="insight-heading" className="text-lg font-semibold text-text-primary">
-            Latest verified insight
+            {t("dashboardLatestInsight")}
           </h2>
           {overview.trends.length === 0 ? (
             <Card padding="lg" className="mt-4">
               <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium text-text-primary">
-                    No verified health insights yet
+                    {t("dashboardNoInsightsTitle")}
                   </p>
                   <p className="mt-1 max-w-md text-sm text-text-secondary">
-                    Once you confirm the details Healthfolio reads from your
-                    reports, your trends and timeline appear here.
+                    {t("dashboardNoInsightsHint")}
                   </p>
                 </div>
               </div>
@@ -462,7 +593,12 @@ export default function DashboardPage() {
                       {trend.normalizedUnit ? ` ${trend.normalizedUnit}` : ""}
                     </p>
                     <p className="mt-1 text-xs text-text-secondary">
-                      {formatShortDate(trend.latestDate)} · {trend.graphableMeasurements} points
+                      {formatShortDate(trend.latestDate, language)} ·{" "}
+                      {trend.graphableMeasurements === 1
+                        ? t("dashboardPointsOne")
+                        : t("dashboardPointsMany", {
+                            count: trend.graphableMeasurements,
+                          })}
                     </p>
                   </Card>
                 </Link>
@@ -475,18 +611,17 @@ export default function DashboardPage() {
         <section aria-labelledby="recent-heading">
           <div className="flex items-center justify-between">
             <h2 id="recent-heading" className="text-lg font-semibold text-text-primary">
-              Recent Healthfolio activity
+              {t("dashboardRecentActivity")}
             </h2>
             <Link href="/records" className="text-sm font-medium text-primary hover:underline">
-              View all records
+              {t("dashboardViewAllRecords")}
             </Link>
           </div>
 
           {overview.documents.length === 0 && overview.runs.length === 0 ? (
             <Card padding="lg" className="mt-4">
               <p className="text-sm text-text-secondary">
-                Your organized records will appear here after your first upload
-                is processed.
+                {t("dashboardRecentEmpty")}
               </p>
             </Card>
           ) : (
@@ -504,11 +639,11 @@ export default function DashboardPage() {
                               {doc.title || doc.original_name}
                             </p>
                             <p className="mt-0.5 text-xs text-text-secondary">
-                              {formatShortDate(doc.created_at)}
+                              {formatShortDate(doc.created_at, language)}
                               {doc.category ? ` · ${doc.category.replace(/_/g, " ")}` : ""}
                             </p>
                           </div>
-                          <Badge variant={status.variant}>{status.label}</Badge>
+                          <Badge variant={status.variant}>{t(status.key)}</Badge>
                         </div>
                       </Card>
                     </Link>
@@ -516,7 +651,9 @@ export default function DashboardPage() {
                 })}
                 {overview.documents.length === 0 && (
                   <Card padding="md">
-                    <p className="text-sm text-text-secondary">No documents yet.</p>
+                    <p className="text-sm text-text-secondary">
+                      {t("dashboardNoDocuments")}
+                    </p>
                   </Card>
                 )}
               </div>
@@ -532,7 +669,7 @@ export default function DashboardPage() {
                             {run.goal}
                           </p>
                           <p className="mt-0.5 text-xs text-text-secondary">
-                            {formatShortDate(run.created_at)}
+                            {formatShortDate(run.created_at, language)}
                           </p>
                         </div>
                         <Badge
@@ -547,14 +684,14 @@ export default function DashboardPage() {
                           }
                         >
                           {run.status === "complete"
-                            ? "Complete"
+                            ? t("dashboardRunComplete")
                             : run.status === "failed"
-                            ? "Needs attention"
+                            ? t("dashboardRunNeedsAttention")
                             : run.status === "waiting_for_user"
-                            ? "Waiting for you"
+                            ? t("dashboardRunWaiting")
                             : run.status === "blocked"
-                            ? "Waiting for you"
-                            : "Processing"}
+                            ? t("dashboardRunWaiting")
+                            : t("dashboardRunProcessing")}
                         </Badge>
                       </div>
                     </Card>
@@ -563,7 +700,7 @@ export default function DashboardPage() {
                 {overview.runs.length === 0 && (
                   <Card padding="md">
                     <p className="text-sm text-text-secondary">
-                      Processing activity will appear after your first upload.
+                      {t("dashboardProcessingEmpty")}
                     </p>
                   </Card>
                 )}
@@ -573,17 +710,45 @@ export default function DashboardPage() {
         </section>
       </div>
       {evidenceFor && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4">
-          <div className="w-full max-w-2xl rounded-t-2xl bg-canvas p-4 shadow-xl sm:rounded-2xl">
-            <p className="mb-2 text-xs text-text-secondary">
-              Source document · page {evidenceFor.pageNumber}. Open the Records page to view the full document.
-            </p>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEvidenceFor(null);
+          }}
+        >
+          <div
+            ref={evidenceDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("dashboardEvidenceNote", {
+              page: evidenceFor.pageNumber,
+            })}
+            tabIndex={-1}
+            className="w-full max-w-2xl rounded-t-2xl bg-canvas p-4 shadow-xl outline-none sm:rounded-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm text-text-secondary">
+                {t("dashboardEvidenceNote", {
+                  page: evidenceFor.pageNumber,
+                })}
+              </p>
+              <button
+                type="button"
+                onClick={() => setEvidenceFor(null)}
+                aria-label={t("cancel")}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-input text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <span aria-hidden="true" className="text-xl leading-none">
+                  ×
+                </span>
+              </button>
+            </div>
             <Link
               href="/records"
-              className="inline-flex h-11 items-center rounded-input bg-primary px-5 font-semibold text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="mt-3 inline-flex h-11 items-center rounded-input bg-primary px-5 font-semibold text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               onClick={() => setEvidenceFor(null)}
             >
-              Open Records
+              {t("dashboardOpenRecords")}
             </Link>
           </div>
         </div>

@@ -4,13 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ documentId: string }> }
 ) {
-  const supabase = await createClient();
+  const supabase = createClient();
   const documentId = (await params).documentId;
 
   const {
@@ -73,7 +73,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ documentId: string }> }
 ) {
-  const supabase = await createClient();
+  const supabase = createClient();
   const documentId = (await params).documentId;
 
   const {

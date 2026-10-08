@@ -125,8 +125,7 @@ ollama serve
 ### 4. Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com)
-2. Go to **Authentication → Providers** and enable **Anonymous** sign-in
-3. Open the SQL Editor and run each migration in order:
+2. Open the SQL Editor and run each migration in order:
    - `supabase/migrations/001_initial_schema.sql`
    - `supabase/migrations/002_storage_bucket.sql`
    - `supabase/migrations/003_add_audit_policy_and_constraints.sql`
@@ -140,12 +139,7 @@ ollama serve
    - `supabase/migrations/011_smart_document_capture.sql`
    - `supabase/migrations/012_storage_webp_support.sql`
    - `supabase/migrations/013_medication_routine_agent.sql`
-4. Go to **Authentication → URL Configuration** and add redirect URLs:
-   ```
-   http://localhost:3000/auth/callback
-   http://localhost:3000/update-password
-   http://localhost:3000/**
-   ```
+   - …continue through `supabase/migrations/027_better_auth_identity.sql` (Better Auth tables, role registry, doctor applications, audit events)
 
 > **Note:** Migration 002 creates the private `documents` storage bucket. If it requires elevated permissions, create the bucket manually in the Supabase Dashboard under **Storage** with the name `documents`, set it to private, and add the policies from the migration file.
 
@@ -155,7 +149,7 @@ ollama serve
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000). A silent anonymous session is created automatically on first visit.
+Visit [http://localhost:3000](http://localhost:3000). First-time visitors **register** at `/register` (Better Auth email + password, creates a `patient` account); returning users sign in at `/sign-in`. There is no anonymous bootstrap — identity always comes from a real Better Auth session.
 
 ---
 
@@ -168,7 +162,7 @@ Visit [http://localhost:3000](http://localhost:3000). A silent anonymous session
 | `npm start` | Start production server |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | TypeScript type checking |
-| `npm test` | Run Vitest unit tests (491 tests) |
+| `npm test` | Run Vitest unit tests (922 tests) |
 | `npm run test:e2e` | Run Playwright E2E tests (app-shell suite on port 3100) |
 | `npm run format` | Format with Prettier |
 | `npm run secrets:scan` | Scan tracked files for committed secrets |
@@ -299,26 +293,27 @@ All tool names are defined in a single authoritative source (`src/lib/tools/tool
 |---|---|---|---|
 | `NEXT_PUBLIC_APP_URL` | Application URL | Public | Yes |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Public | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Public | Yes |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | **Server-only** | Optional* |
-| `AI_PROVIDER` | AI provider (`ollama`) | Server-only | Yes |
-| `OLLAMA_BASE_URL` | Ollama endpoint URL | Server-only | Yes |
-| `OLLAMA_TEXT_MODEL` | Extraction model (`qwen2.5:3b`) | Server-only | Yes |
-| `OLLAMA_CHAT_MODEL` | Chat model (`qwen3:8b`) | Server-only | Yes |
-| `OLLAMA_EMBEDDING_MODEL` | Embedding model (`nomic-embed-text`) | Server-only | Optional |
-| `AI_REQUEST_TIMEOUT_MS` | AI request timeout (ms) | Server-only | No |
-| `OCR_PROVIDER` | OCR engine (`tesseract`) | Server-only | No |
-| `OCR_LANGUAGES` | OCR languages | Server-only | No |
-| `OCR_MIN_CONFIDENCE` | OCR confidence threshold | Server-only | No |
-| `DOCUMENT_MAX_BYTES` | Max upload size | Server-only | No |
-| `AGENT_MAX_STEPS` | Max agent steps | Server-only | No |
-| `AGENT_MAX_RETRIES` | Max retries per step | Server-only | No |
-| `EXTRACTION_CONFIDENCE_THRESHOLD` | Review threshold | Server-only | No |
-| `APP_ENCRYPTION_KEY` | Encryption key | **Server-only** | Optional |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Public | Legacy-compatible |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | **Server-only** | Yes |
+| `DATABASE_URL` | PostgreSQL connection string for Better Auth tables | **Server-only** | Yes |
+| `BETTER_AUTH_SECRET` | Session signing secret (generate: `openssl rand -base64 32`) | **Server-only** | Yes |
+| `BETTER_AUTH_URL` | Canonical auth origin (e.g. `http://localhost:3000`) | Server-only | Yes in production |
 
-\* `SUPABASE_SERVICE_ROLE_KEY` is only needed for account deletion. Normal workflows use Row-Level Security with the anonymous session.
+\* `SUPABASE_SERVICE_ROLE_KEY` is required by the server-side data layer (all medical-table access is server-scoped); it must never appear in client code. `NEXT_PUBLIC_SUPABASE_ANON_KEY` remains accepted for legacy compatibility but the browser no longer talks to Supabase directly.
 
-**Never prefix secret variables with `NEXT_PUBLIC_`.** Server-only keys must never appear in browser JavaScript bundles.
+### Authentication (Better Auth)
+
+Authentication is owned by [Better Auth](https://better-auth.com): users, sessions, credential accounts, and verification tokens live in Better Auth's canonical tables (migration 027) in the same PostgreSQL database referenced by `DATABASE_URL`. Supabase remains the database and private document storage; the browser never authenticates to Supabase and never queries medical tables directly.
+
+- **Roles are server-enforced** (`app_roles` registry, migration 027): `patient`, `doctor_pending`, `doctor`, `facility_admin`, `platform_admin`. Public registration creates only `patient`; doctor applicants become `doctor_pending` until an authorized admin approves them; `platform_admin` can never be created through any public surface.
+- **Initial platform admin** (local, server-only, requires the service key from `.env.local`):
+
+  ```bash
+  node scripts/admin-bootstrap.mjs --email <existing-user-email> --confirm
+  ```
+
+  The script refuses to run without the required environment variables or without `--confirm`, prints only truncated IDs, and is idempotent. See the script header for the full contract.
+- **Post-login routing by role:** `patient` → `/dashboard`, `doctor_pending` → `/doctor/application-status`, `doctor` → `/doctor`, `facility_admin` → `/admin/facility`, `platform_admin` → `/admin/platform`. Role-specific areas show an accessible "You do not have access to this area" screen to everyone else — never a raw error.
 
 ---
 
@@ -404,7 +399,7 @@ Runs: secrets scan, lint, typecheck, unit tests, build, and AI check.
 - **WebRTC video needs real infrastructure.** No TURN/STUN relay is configured by default, so peer-to-peer media cannot be guaranteed — especially on 2G/3G. Secure text and store-and-forward messaging are the dependable fallback paths, fully functional offline. Video/audio only via authorized, confirmed appointments.
 - **Not a diagnostic or emergency-response system.** The deterministic triage engine sorts requests by broad urgency signals; it never diagnoses, prescribes, or contacts emergency services. Region emergency guidance is configured by administrators and is informational only.
 - **Pharmacy availability is only as current as the pharmacy's last confirmation** — stale statuses are shown as "Not recently confirmed," never as current availability.
-- **Staff roles are server-assigned** via the platform-admin console or the local `npm run staff:bootstrap` provisioning script (roles live in the `user_roles` registry, migration 026; see `docs/operations-runbook.md`). There is no self-service clinician signup.
+- **Staff roles are server-assigned** via the platform-admin console or the local provisioning scripts (`npm run admin:bootstrap` for the first platform admin — Better Auth identity, migration 027; see `docs/operations-runbook.md`). There is no self-service clinician signup.
 - **Metrics are aggregate-only.** No symptom text, document contents, or identifiers ever enter the metrics layer.
 
 ---
@@ -439,7 +434,7 @@ Region-specific behavior (languages, emergency guidance text/number, appointment
 
 ### Staff roles
 
-Clinician/coordinator roles are assigned server-side through the platform-admin console (`/staff/admin`) or the local `npm run staff:bootstrap` provisioning script; role capability requires an active row in the `user_roles` registry (migration 026). Pharmacy operator/manager roles live in `pharmacy_memberships` (migration 020). Clients can never assert a role.
+Clinician/coordinator roles are assigned server-side through the platform-admin console (`/staff/admin`) or the local `npm run admin:bootstrap` provisioning script. Role capability requires an active row in the `app_roles` registry (migration 027, Better Auth identity). Pharmacy operator/manager roles live in `pharmacy_memberships` (migration 020). Clients can never assert a role.
 
 ---
 
@@ -452,7 +447,8 @@ MIT
 ## Third-Party Acknowledgements
 
 - [Next.js](https://nextjs.org/) — React framework
-- [Supabase](https://supabase.com/) — Database, auth, and storage
+- [Supabase](https://supabase.com/) — Database and private storage
+- [Better Auth](https://better-auth.com/) — Authentication, sessions, and identity
 - [Ollama](https://ollama.com/) — Local AI inference
 - [Tesseract.js](https://tesseract.projectnaptha.com/) — Optical character recognition
 - [pdf-parse](https://www.npmjs.com/package/pdf-parse) — PDF text extraction

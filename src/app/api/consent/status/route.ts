@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { getUser } from "@/lib/auth-helpers";
 import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
 
@@ -22,7 +22,7 @@ export async function GET() {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createClient();
 
     const { data: consents } = await supabase
       .from("consents")

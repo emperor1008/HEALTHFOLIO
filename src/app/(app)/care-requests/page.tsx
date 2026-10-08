@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CareRequestWizard } from "@/components/care/CareRequestWizard";
 import { CareRequestHistory } from "@/components/care/CareRequestHistory";
+import { MyConsultations } from "@/components/care/MyConsultations";
 
 type View = "menu" | "wizard" | "history";
 
@@ -89,6 +90,9 @@ export default function CareRequestsPage() {
                 <span aria-hidden="true" className="text-2xl text-[#1E4D45]">→</span>
               </button>
             </div>
+
+            {/* Phase 1 — patient entry to real consultations */}
+            <MyConsultations />
           </section>
         )}
 

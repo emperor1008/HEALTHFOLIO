@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
+import { documentSignedUrl, deleteDocument, listDocuments } from "@/lib/api/page-queries";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -31,28 +31,26 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     async function loadDocuments() {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: docs } = await supabase
-        .from("documents")
-        .select("id, original_name, mime_type, size_bytes, document_type, status, page_count, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      setDocuments(docs || []);
-
-      // Count pending extractions
-      const { count } = await supabase
-        .from("extractions")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("verification_status", "pending");
-
-      setPendingCount(count || 0);
-      setLoading(false);
+      try {
+        // Server resolves the Better Auth session and scopes every read to it.
+        const docs = await listDocuments(50);
+        setDocuments(
+          docs.map((d) => ({
+            id: d.id,
+            original_name: d.original_name,
+            mime_type: "",
+            size_bytes: d.size_bytes ?? 0,
+            document_type: d.document_type,
+            status: d.processing_status,
+            page_count: d.page_count,
+            created_at: d.created_at,
+          }))
+        );
+      } catch {
+        // Session ended or unavailable: leave the truthful empty list.
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadDocuments();
@@ -60,21 +58,26 @@ export default function DocumentsPage() {
 
   async function handlePreview(doc: Document) {
     setPreviewDoc(doc);
-    const supabase = await createClient();
-    const { data } = await supabase.storage
-      .from("documents")
-      .createSignedUrl(doc.id + "/" + doc.original_name, 3600);
-    setPreviewUrl(data?.signedUrl || null);
+    try {
+      // Short-lived, ownership-verified URL minted server-side.
+      const url = await documentSignedUrl(doc.id);
+      setPreviewUrl(url);
+    } catch {
+      setPreviewUrl(null);
+    }
   }
 
   async function handleDelete(docId: string) {
     if (!confirm("Are you sure you want to delete this document? This cannot be undone.")) return;
 
-    const supabase = await createClient();
-    await supabase.from("documents").delete().eq("id", docId);
-    setDocuments((prev) => prev.filter((d) => d.id !== docId));
-    setPreviewDoc(null);
-    setPreviewUrl(null);
+    try {
+      await deleteDocument(docId);
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+      setPreviewDoc(null);
+      setPreviewUrl(null);
+    } catch {
+      // Deletion failed server-side; keep the row visible truthfully.
+    }
   }
 
   if (loading) {

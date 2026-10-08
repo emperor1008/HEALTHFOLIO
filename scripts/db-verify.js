@@ -150,6 +150,14 @@ function main() {
     "notification_deliveries",
     "audit_events",
     "health_signals",
+    // Better Auth identity layer (migration 027) — canonical singular names.
+    "user",
+    "session",
+    "account",
+    "verification",
+    "app_roles",
+    "doctor_applications",
+    "role_policy_events",
   ];
 
   console.log("📋 Checking required tables...");

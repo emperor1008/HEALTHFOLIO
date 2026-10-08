@@ -18,6 +18,7 @@ import {
 import { createNetworkMonitor } from "./network";
 import { getOfflineStore } from "./storage";
 import { createSyncEngine, FAILURE_REASONS, type SyncEngine } from "./sync-engine";
+import { canSyncItem, getOwnerBinding, setOwnerBinding } from "./ownership";
 import type { OfflineStore, QueueActionPayload, QueueItem, SyncAttemptResult } from "./types";
 
 export interface SyncContextValue {
@@ -357,6 +358,9 @@ function createHttpHandlers(): {
 }
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
+  // Owner binding: resolved from the persisted localStorage binding and kept
+  // fresh by the session effect below (Better Auth session user id).
+  const ownerRef = useRef<string | null>(getOwnerBinding());
   const engineRef = useRef<SyncEngine | null>(null);
   const [items, setItems] = useState<QueueItem[]>([]);
   const [online, setOnline] = useState(true);
@@ -376,6 +380,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         onSyncStart: () => setSyncing(true),
         onSyncEnd: () => setSyncing(false),
       },
+      getOwnerId: () => ownerRef.current,
+      canSyncItem,
     });
     engineRef.current = engine;
     languageEnqueueRef = (language: string) =>
@@ -404,6 +410,33 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       unsubQueue();
       engine.dispose();
       engineRef.current = null;
+    };
+  }, []);
+
+  // Keep the owner binding aligned with the Better Auth session. When the
+  // session resolves (or changes users), the binding updates and queued items
+  // created by THAT user become syncable again. Signed-out → binding cleared
+  // so nothing syncs; items stay bound to their original owner in IndexedDB.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session-owner", { cache: "no-store" });
+        if (cancelled) return;
+        if (res.ok) {
+          const data = (await res.json()) as { userId: string | null };
+          ownerRef.current = data.userId;
+          setOwnerBinding(data.userId);
+        } else {
+          ownerRef.current = null;
+          setOwnerBinding(null);
+        }
+      } catch {
+        // Offline: keep the previous binding; nothing syncs anyway while offline.
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
   }, []);
 

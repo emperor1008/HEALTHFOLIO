@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -56,17 +55,12 @@ export default function MedicinesPage() {
   useEffect(() => {
     async function load() {
       try {
-        const supabase = await createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
+        const response = await fetch("/api/medicines/link", { cache: "no-store" });
+        if (response.status === 401) {
           setPrescribedFailed(true);
           setLoadingPrescribed(false);
           return;
         }
-
-        const response = await fetch("/api/medicines/link");
         const json = await response.json();
         if (json.data?.medicines) {
           setPrescribed(json.data.medicines);

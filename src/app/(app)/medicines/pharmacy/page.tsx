@@ -19,6 +19,7 @@ import { searchMedicineSafe, medicineDisplayLabel, SUGGESTION_THRESHOLD, type Me
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { VoiceInput } from "@/components/voice/VoiceInput";
 
 interface AvailabilityRow {
   pharmacyId: string;
@@ -95,6 +96,8 @@ export default function PharmacyFinderClient() {
     return ids.size;
   }, [items]);
 
+  const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
+
   const loadMyRequests = useCallback(async () => {
     try {
       const res = await fetch("/api/pharmacy/requests");
@@ -105,8 +108,6 @@ export default function PharmacyFinderClient() {
       /* offline: keep whatever we have; queue state is shown separately */
     }
   }, []);
-
-  const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
 
   const openRequests = useCallback(() => {
     setView("requests");
@@ -231,6 +232,11 @@ export default function PharmacyFinderClient() {
               placeholder={t.searchPlaceholder}
               className="min-h-11 w-full rounded-md border border-forest-200 bg-white px-3 py-2 text-base"
               autoComplete="off"
+            />
+            <VoiceInput
+              language={language}
+              maxChars={120}
+              onConfirm={(text) => setQuery(text)}
             />
             <Button type="submit" disabled={!query.trim()}>
               {t.search}

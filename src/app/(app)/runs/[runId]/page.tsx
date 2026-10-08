@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -52,30 +51,25 @@ export default function RunDetailPage() {
   const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async () => {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: runData } = await supabase
-      .from("agent_runs")
-      .select("id, goal, status, current_step, created_at, completed_at")
-      .eq("id", runId)
-      .eq("user_id", user.id)
-      .single();
-
-    if (runData) setRun(runData);
-
-    const { data: stepsData } = await supabase
-      .from("agent_steps")
-      .select("*")
-      .eq("run_id", runId)
-      .eq("user_id", user.id)
-      .order("sequence", { ascending: true });
-
-    setSteps(stepsData || []);
-    setLoading(false);
+    try {
+      // Server resolves the Better Auth session and forces run ownership.
+      const res = await fetch(`/api/runs/${runId}`, { cache: "no-store" });
+      if (res.status === 401 || res.status === 404) {
+        setLoading(false);
+        return;
+      }
+      if (res.ok) {
+        const data = (await res.json()) as {
+          data?: { run?: AgentRun; steps?: AgentStep[] };
+        };
+        if (data.data?.run) setRun(data.data.run);
+        setSteps(data.data?.steps ?? []);
+      }
+    } catch {
+      // Truthful retain of prior data on transient failure.
+    } finally {
+      setLoading(false);
+    }
   }, [runId]);
 
   useEffect(() => {
@@ -110,21 +104,9 @@ export default function RunDetailPage() {
         autoStepRef.current = true;
 
         try {
-          const supabase = await createClient();
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (!session) {
-            if (!cancelled) scheduleNext();
-            return;
-          }
-
           const response = await fetch(`/api/runs/${runId}/step`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
+            headers: { "Content-Type": "application/json" },
           });
 
           const result = await response.json();
@@ -179,18 +161,9 @@ export default function RunDetailPage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) return;
-
       const response = await fetch(`/api/runs/${runId}/step`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       const result = await response.json();

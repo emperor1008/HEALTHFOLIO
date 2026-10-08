@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -76,59 +75,30 @@ export default function PreparePage() {
     return null;
   }, []);
 
-  const handleFileSelect = useCallback(
-    async (selectedFiles: FileList | null) => {
-      if (!selectedFiles || selectedFiles.length === 0) return;
-      setError(null);
-
-      // Check consent before uploading
-      if (!consentChecked) {
-        try {
-          const statusRes = await fetch("/api/consent/status");
-          const statusData = await statusRes.json();
-          if (!statusData.data?.hasConsent) {
-            setPendingFiles(selectedFiles);
-            setShowConsent(true);
-            return;
-          }
-          setConsentChecked(true);
-        } catch {
-          // If consent check fails, show modal to be safe
-          setPendingFiles(selectedFiles);
-          setShowConsent(true);
-          return;
-        }
-      }
-
-      await processFiles(selectedFiles);
-    }, [consentChecked]
-  );
-
   const processFiles = useCallback(
     async (selectedFiles: FileList) => {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get or create portfolio
+      // Resolve (or silently create) the user's portfolio through the
+      // authenticated health-space endpoint; ownership is server-enforced.
       let portfolioId: string | null = null;
-      const { data: portfolios } = await supabase
-        .from("portfolios")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1);
-
-      if (portfolios && portfolios.length > 0) {
-        portfolioId = portfolios[0].id;
-      } else {
-        const { data: newPortfolio } = await supabase
-          .from("portfolios")
-          .insert({ user_id: user.id, label: "My Healthfolio" })
-          .select("id")
-          .single();
-        portfolioId = newPortfolio?.id || null;
+      try {
+        const space = await fetch("/api/health-space", { cache: "no-store" });
+        if (space.status === 401) return;
+        const spaceData = (await space.json()) as { portfolio?: { id: string } | null };
+        if (spaceData.portfolio) {
+          portfolioId = spaceData.portfolio.id;
+        } else {
+          const created = await fetch("/api/user-data/portfolios", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label: "My Healthfolio" }),
+          });
+          if (created.ok) {
+            const rowData = (await created.json()) as { row?: { id: string } };
+            portfolioId = rowData.row?.id ?? null;
+          }
+        }
+      } catch {
+        return;
       }
 
       if (!portfolioId) {
@@ -224,6 +194,34 @@ export default function PreparePage() {
     [validateFile]
   );
 
+  const handleFileSelect = useCallback(
+    async (selectedFiles: FileList | null) => {
+      if (!selectedFiles || selectedFiles.length === 0) return;
+      setError(null);
+
+      // Check consent before uploading
+      if (!consentChecked) {
+        try {
+          const statusRes = await fetch("/api/consent/status");
+          const statusData = await statusRes.json();
+          if (!statusData.data?.hasConsent) {
+            setPendingFiles(selectedFiles);
+            setShowConsent(true);
+            return;
+          }
+          setConsentChecked(true);
+        } catch {
+          // If consent check fails, show modal to be safe
+          setPendingFiles(selectedFiles);
+          setShowConsent(true);
+          return;
+        }
+      }
+
+      await processFiles(selectedFiles);
+    }, [consentChecked, processFiles]
+  );
+
   function handleConsentAccepted() {
     setShowConsent(false);
     setConsentChecked(true);
@@ -254,22 +252,10 @@ export default function PreparePage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        setError("Your session has expired. Please sign in again.");
-        return;
-      }
-
+      // The Better Auth session cookie authorizes the run start server-side.
       const response = await fetch("/api/runs", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           goal,
           appointment: appointmentDate

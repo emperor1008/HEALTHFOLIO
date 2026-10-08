@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -70,28 +69,34 @@ export default function ReviewPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      // Server resolves the Better Auth session and scopes both reads to it.
+      const params = new URLSearchParams({
+        select: "id,document_id,verification_status,confidence,payload,created_at",
+        limit: "200",
+        order: "confidence.asc",
+      });
+      params.append("eq", "verification_status=pending");
+      const extsRes = await fetch(`/api/user-data/extractions?${params.toString()}`, {
+        cache: "no-store",
+      });
+      if (extsRes.status === 401) return;
+      const extsData = extsRes.ok ? ((await extsRes.json()) as { rows: unknown[] }) : { rows: [] };
+      setExtractions(extsData.rows as never[]);
 
-    // Load pending extractions
-    const { data: exts } = await supabase
-      .from("extractions")
-      .select("*")
-      .eq("user_id", user.id)
-      .in("verification_status", ["pending", "pending_review"])
-      .order("confidence", { ascending: true });
-
-    setExtractions(exts || []);
-
-    // Load documents
-    const { data: docs } = await supabase
-      .from("documents")
-      .select("id, original_name, status")
-      .eq("user_id", user.id);
-
-    setDocuments(docs || []);
-    setLoading(false);
+      const docsRes = await fetch(
+        "/api/user-data/documents?select=id,original_name,processing_status&limit=400",
+        { cache: "no-store" }
+      );
+      if (docsRes.ok) {
+        const docsData = (await docsRes.json()) as { rows: unknown[] };
+        setDocuments(docsData.rows as never[]);
+      }
+    } catch {
+      // Truthful empty state on failure
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -109,18 +114,12 @@ export default function ReviewPage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
+      // The Better Auth session cookie authorizes the confirmation server-side.
       const response = await fetch(
         `/api/extractions/${currentExtraction.id}/confirm`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             decision,
             correctedValue: decision === "correct" ? correctedValue : null,

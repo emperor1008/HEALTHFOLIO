@@ -118,6 +118,13 @@ export interface QueueItem<T extends QueueActionPayload = QueueActionPayload> {
   blobKey?: string;
   /** ISO timestamp of the last state change (for display ordering). */
   updatedAt: string;
+  /**
+   * Owner binding: the Better Auth user id of the session that created this
+   * item, or a safe `pre-auth:` local marker when no session existed yet.
+   * Only items whose ownerId matches the CURRENT session ever sync — queued
+   * personal data can never attach to a different account on shared devices.
+   */
+  ownerId?: string;
 }
 
 /** Result of one sync attempt for one item. */

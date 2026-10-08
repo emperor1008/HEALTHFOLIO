@@ -58,11 +58,28 @@ function err(e: Err) {
   return NextResponse.json({ code: e.code }, { status: e.status });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requirePlatformAdmin();
   if ("code" in auth) return err(auth);
 
   const admin = await createAdminClient();
+  const url = new URL(req.url);
+  const view = url.searchParams.get("view");
+
+  // Applications view for the platform-admin console: real doctor
+  // applications, safe columns only (never the licence number).
+  if (view === "applications") {
+    const { data: apps, error: appsErr } = await admin
+      .from("doctor_applications")
+      .select("id, status, specialty, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (appsErr) {
+      return NextResponse.json({ code: "LIST_FAILED" }, { status: 500 });
+    }
+    return NextResponse.json({ applications: apps ?? [] });
+  }
+
   const { data, error } = await admin.from("user_roles").select(SAFE_COLUMNS).order("created_at");
   if (error) {
     console.error("[staff-admin] list failed", { code: error.code });

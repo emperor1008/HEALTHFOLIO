@@ -11,8 +11,8 @@ let mockMaybeSingle: ReturnType<typeof vi.fn>;
 let mockSingle: ReturnType<typeof vi.fn>;
 let mockInsert: ReturnType<typeof vi.fn>;
 
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: () => ({
+vi.mock("@/lib/supabase/user-context", () => ({
+  getServerSupabase: () => ({
     from: (table: string) => {
       const chain: Record<string, any> = {
         select: (..._a: unknown[]) => chain,

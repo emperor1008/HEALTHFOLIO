@@ -13,6 +13,7 @@ import { t3 } from "@/lib/i18n/part3";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ClinicianQueue } from "@/components/care/ClinicianQueue";
 
 interface Profile {
   display_name: string;
@@ -109,10 +110,7 @@ export default function StaffPage() {
               </div>
               <p className="mt-2 text-xs text-text-secondary">{freshnessText(profile.updated_at, tt)}</p>
             </Card>
-            <Card padding="md" className="mt-4">
-              <p className="font-medium text-text-primary">{tt("assignedQueue")}</p>
-              <p className="mt-1 text-sm text-text-secondary">{tt("staffNotConfiguredHint")}</p>
-            </Card>
+            <ClinicianQueue />
           </>
         )}
       </main>
