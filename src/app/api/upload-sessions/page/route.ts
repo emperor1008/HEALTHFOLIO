@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import crypto from "crypto";
+import { getUser } from "@/lib/auth-helpers";
 
 const pageIntentSchema = z.object({
   sessionId: z.string().min(1),
@@ -19,22 +20,27 @@ const pageIntentSchema = z.object({
   fileHash: z.string().min(1),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
-  rotation: z.number().int().refine((r) => [0, 90, 180, 270].includes(r)),
-  qualityStatus: z.enum(["acceptable", "warning", "retake_recommended", "unusable"]),
+  rotation: z
+    .number()
+    .int()
+    .refine((r) => [0, 90, 180, 270].includes(r)),
+  qualityStatus: z.enum([
+    "acceptable",
+    "warning",
+    "retake_recommended",
+    "unusable",
+  ]),
   qualityMetrics: z.record(z.unknown()).optional(),
 });
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
-  if (authError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: { code: "AUTH_REQUIRED", message: "Authentication required" } },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -43,15 +49,26 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Invalid page parameters" } },
-      { status: 400 }
+      {
+        error: { code: "INVALID_REQUEST", message: "Invalid page parameters" },
+      },
+      { status: 400 },
     );
   }
 
   const {
-    sessionId, documentId, pageNumber, fileName, mimeType,
-    sizeBytes, fileHash, width, height, rotation,
-    qualityStatus, qualityMetrics,
+    sessionId,
+    documentId,
+    pageNumber,
+    fileName,
+    mimeType,
+    sizeBytes,
+    fileHash,
+    width,
+    height,
+    rotation,
+    qualityStatus,
+    qualityMetrics,
   } = parsed.data;
 
   const admin = await createAdminClient();
@@ -64,18 +81,32 @@ export async function POST(request: NextRequest) {
     .eq("user_id", user.id)
     .single();
 
-  if (!session || session.status === "cancelled" || session.status === "completed") {
+  if (
+    !session ||
+    session.status === "cancelled" ||
+    session.status === "completed"
+  ) {
     return NextResponse.json(
-      { error: { code: "UPLOAD_SESSION_FAILED", message: "Invalid or expired upload session" } },
-      { status: 400 }
+      {
+        error: {
+          code: "UPLOAD_SESSION_FAILED",
+          message: "Invalid or expired upload session",
+        },
+      },
+      { status: 400 },
     );
   }
 
   // Check page count limit
   if (pageNumber > session.expected_page_count) {
     return NextResponse.json(
-      { error: { code: "TOO_MANY_PAGES", message: `Page ${pageNumber} exceeds expected ${session.expected_page_count} pages` } },
-      { status: 400 }
+      {
+        error: {
+          code: "TOO_MANY_PAGES",
+          message: `Page ${pageNumber} exceeds expected ${session.expected_page_count} pages`,
+        },
+      },
+      { status: 400 },
     );
   }
 
@@ -91,8 +122,13 @@ export async function POST(request: NextRequest) {
 
   if (uploadError) {
     return NextResponse.json(
-      { error: { code: "STORAGE_FAILED", message: "Upload storage is temporarily unavailable" } },
-      { status: 500 }
+      {
+        error: {
+          code: "STORAGE_FAILED",
+          message: "Upload storage is temporarily unavailable",
+        },
+      },
+      { status: 500 },
     );
   }
 
@@ -161,8 +197,13 @@ export async function POST(request: NextRequest) {
 
   if (pageError) {
     return NextResponse.json(
-      { error: { code: "DATABASE_WRITE_FAILED", message: "Could not save page record" } },
-      { status: 500 }
+      {
+        error: {
+          code: "DATABASE_WRITE_FAILED",
+          message: "Could not save page record",
+        },
+      },
+      { status: 500 },
     );
   }
 

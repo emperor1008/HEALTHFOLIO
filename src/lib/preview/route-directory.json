@@ -1,0 +1,936 @@
+{
+  "generatedAt": "2026-10-09T08:43:06.223Z",
+  "source": "scripts/route-inventory.mjs",
+  "groups": [
+    {
+      "id": "dashboard",
+      "label": "Main dashboard"
+    },
+    {
+      "id": "records",
+      "label": "Health profile and records"
+    },
+    {
+      "id": "documents",
+      "label": "Document upload and extraction"
+    },
+    {
+      "id": "timeline",
+      "label": "Medical timeline"
+    },
+    {
+      "id": "reminders",
+      "label": "Reminders and reports"
+    },
+    {
+      "id": "assistant",
+      "label": "Voice assistant and symptom guidance"
+    },
+    {
+      "id": "consultations",
+      "label": "Video consultations"
+    },
+    {
+      "id": "pharmacy",
+      "label": "Pharmacy information"
+    },
+    {
+      "id": "settings",
+      "label": "Settings and account management"
+    },
+    {
+      "id": "pwa",
+      "label": "PWA and offline experience"
+    },
+    {
+      "id": "clinician",
+      "label": "Clinician console"
+    },
+    {
+      "id": "admin",
+      "label": "Administration and staff"
+    },
+    {
+      "id": "auth",
+      "label": "Authentication and access"
+    },
+    {
+      "id": "other",
+      "label": "Other pages"
+    }
+  ],
+  "pages": [
+    {
+      "route": "/",
+      "group": "dashboard",
+      "file": "(marketing)/page.tsx"
+    },
+    {
+      "route": "/access-denied",
+      "group": "auth",
+      "file": "(app)/access-denied/page.tsx"
+    },
+    {
+      "route": "/admin/facility",
+      "group": "admin",
+      "file": "(app)/admin/facility/page.tsx"
+    },
+    {
+      "route": "/admin/platform",
+      "group": "admin",
+      "file": "(app)/admin/platform/page.tsx"
+    },
+    {
+      "route": "/ask",
+      "group": "assistant",
+      "file": "(app)/ask/page.tsx"
+    },
+    {
+      "route": "/availability",
+      "group": "pharmacy",
+      "file": "(app)/availability/page.tsx"
+    },
+    {
+      "route": "/care-requests",
+      "group": "consultations",
+      "file": "(app)/care-requests/page.tsx"
+    },
+    {
+      "route": "/consent",
+      "group": "consultations",
+      "file": "(app)/consent/page.tsx"
+    },
+    {
+      "route": "/consultations/:id",
+      "group": "consultations",
+      "file": "(app)/consultations/[id]/page.tsx"
+    },
+    {
+      "route": "/dashboard",
+      "group": "dashboard",
+      "file": "(app)/dashboard/page.tsx"
+    },
+    {
+      "route": "/doctor",
+      "group": "clinician",
+      "file": "(app)/doctor/page.tsx"
+    },
+    {
+      "route": "/doctor/application-status",
+      "group": "clinician",
+      "file": "(app)/doctor/application-status/page.tsx"
+    },
+    {
+      "route": "/doctor/apply",
+      "group": "auth",
+      "file": "(auth)/doctor/apply/page.tsx"
+    },
+    {
+      "route": "/documents",
+      "group": "documents",
+      "file": "(app)/documents/page.tsx"
+    },
+    {
+      "route": "/forgot-password",
+      "group": "auth",
+      "file": "(auth)/forgot-password/page.tsx"
+    },
+    {
+      "route": "/health-card",
+      "group": "records",
+      "file": "(app)/health-card/page.tsx"
+    },
+    {
+      "route": "/health-tracking",
+      "group": "records",
+      "file": "(app)/health-tracking/page.tsx"
+    },
+    {
+      "route": "/health-tracking/tests/:testKey",
+      "group": "records",
+      "file": "(app)/health-tracking/tests/[testKey]/page.tsx"
+    },
+    {
+      "route": "/medicines",
+      "group": "records",
+      "file": "(app)/medicines/page.tsx"
+    },
+    {
+      "route": "/medicines/:medicineId",
+      "group": "records",
+      "file": "(app)/medicines/[medicineId]/page.tsx"
+    },
+    {
+      "route": "/medicines/pharmacy",
+      "group": "records",
+      "file": "(app)/medicines/pharmacy/page.tsx"
+    },
+    {
+      "route": "/offline",
+      "group": "pwa",
+      "file": "offline/page.tsx"
+    },
+    {
+      "route": "/pharmacy",
+      "group": "pharmacy",
+      "file": "(app)/pharmacy/page.tsx"
+    },
+    {
+      "route": "/preparation",
+      "group": "documents",
+      "file": "(app)/preparation/page.tsx"
+    },
+    {
+      "route": "/prepare",
+      "group": "documents",
+      "file": "(app)/prepare/page.tsx"
+    },
+    {
+      "route": "/preview",
+      "group": "other",
+      "file": "preview/page.tsx"
+    },
+    {
+      "route": "/records",
+      "group": "records",
+      "file": "(app)/records/page.tsx"
+    },
+    {
+      "route": "/records/reports",
+      "group": "records",
+      "file": "(app)/records/reports/page.tsx"
+    },
+    {
+      "route": "/records/reports/:documentId",
+      "group": "records",
+      "file": "(app)/records/reports/[documentId]/page.tsx"
+    },
+    {
+      "route": "/register",
+      "group": "auth",
+      "file": "(auth)/register/page.tsx"
+    },
+    {
+      "route": "/reliability",
+      "group": "pwa",
+      "file": "(app)/reliability/page.tsx"
+    },
+    {
+      "route": "/reset-password",
+      "group": "auth",
+      "file": "(auth)/reset-password/page.tsx"
+    },
+    {
+      "route": "/review",
+      "group": "documents",
+      "file": "(app)/review/page.tsx"
+    },
+    {
+      "route": "/routine",
+      "group": "reminders",
+      "file": "(app)/routine/page.tsx"
+    },
+    {
+      "route": "/routine/:planId",
+      "group": "reminders",
+      "file": "(app)/routine/[planId]/page.tsx"
+    },
+    {
+      "route": "/runs/:runId",
+      "group": "documents",
+      "file": "(app)/runs/[runId]/page.tsx"
+    },
+    {
+      "route": "/settings",
+      "group": "settings",
+      "file": "(app)/settings/page.tsx"
+    },
+    {
+      "route": "/sign-in",
+      "group": "auth",
+      "file": "(auth)/sign-in/page.tsx"
+    },
+    {
+      "route": "/staff",
+      "group": "admin",
+      "file": "(app)/staff/page.tsx"
+    },
+    {
+      "route": "/staff/admin",
+      "group": "admin",
+      "file": "(app)/staff/admin/page.tsx"
+    },
+    {
+      "route": "/symptoms",
+      "group": "assistant",
+      "file": "(app)/symptoms/page.tsx"
+    },
+    {
+      "route": "/timeline",
+      "group": "timeline",
+      "file": "(app)/timeline/page.tsx"
+    }
+  ],
+  "api": [
+    {
+      "route": "/api/account/delete",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/account/delete/route.ts"
+    },
+    {
+      "route": "/api/ai/status",
+      "methods": [
+        "GET"
+      ],
+      "auth": "none-detected",
+      "file": "api/ai/status/route.ts"
+    },
+    {
+      "route": "/api/appointments",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/appointments/route.ts"
+    },
+    {
+      "route": "/api/appointments/:id",
+      "methods": [
+        "PATCH"
+      ],
+      "auth": "getUser",
+      "file": "api/appointments/[id]/route.ts"
+    },
+    {
+      "route": "/api/appointments/:id/messages",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/appointments/[id]/messages/route.ts"
+    },
+    {
+      "route": "/api/appointments/:id/share-consent",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "auth": "getUser",
+      "file": "api/appointments/[id]/share-consent/route.ts"
+    },
+    {
+      "route": "/api/appointments/:id/status",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/appointments/[id]/status/route.ts"
+    },
+    {
+      "route": "/api/ask",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/ask/route.ts"
+    },
+    {
+      "route": "/api/auth/home",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/auth/home/route.ts"
+    },
+    {
+      "route": "/api/auth/me",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/auth/me/route.ts"
+    },
+    {
+      "route": "/api/auth/provision",
+      "methods": [
+        "POST"
+      ],
+      "auth": "none-detected",
+      "file": "api/auth/provision/route.ts"
+    },
+    {
+      "route": "/api/auth/register",
+      "methods": [
+        "POST"
+      ],
+      "auth": "none-detected",
+      "file": "api/auth/register/route.ts"
+    },
+    {
+      "route": "/api/auth/session",
+      "methods": [
+        "POST"
+      ],
+      "auth": "none-detected",
+      "file": "api/auth/session/route.ts"
+    },
+    {
+      "route": "/api/auth/session-owner",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/auth/session-owner/route.ts"
+    },
+    {
+      "route": "/api/auth/sign-in",
+      "methods": [
+        "POST"
+      ],
+      "auth": "none-detected",
+      "file": "api/auth/sign-in/route.ts"
+    },
+    {
+      "route": "/api/auth/sign-out",
+      "methods": [
+        "POST"
+      ],
+      "auth": "none-detected",
+      "file": "api/auth/sign-out/route.ts"
+    },
+    {
+      "route": "/api/briefs",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/briefs/route.ts"
+    },
+    {
+      "route": "/api/briefs/:id/pdf",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/briefs/[id]/pdf/route.ts"
+    },
+    {
+      "route": "/api/calendar/:appointmentId/ics",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/calendar/[appointmentId]/ics/route.ts"
+    },
+    {
+      "route": "/api/care-options",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/care-options/route.ts"
+    },
+    {
+      "route": "/api/care-requests",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/care-requests/route.ts"
+    },
+    {
+      "route": "/api/care-requests/:id/accept",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/care-requests/[id]/accept/route.ts"
+    },
+    {
+      "route": "/api/care-requests/:id/assign",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/care-requests/[id]/assign/route.ts"
+    },
+    {
+      "route": "/api/clinician/care-requests",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/clinician/care-requests/route.ts"
+    },
+    {
+      "route": "/api/clinician/documents",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/clinician/documents/route.ts"
+    },
+    {
+      "route": "/api/clinicians/me/availability",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "auth": "getUser",
+      "file": "api/clinicians/me/availability/route.ts"
+    },
+    {
+      "route": "/api/consent",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/consent/route.ts"
+    },
+    {
+      "route": "/api/consent/status",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/consent/status/route.ts"
+    },
+    {
+      "route": "/api/consultations",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/consultations/route.ts"
+    },
+    {
+      "route": "/api/consultations/:id",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/consultations/[id]/route.ts"
+    },
+    {
+      "route": "/api/consultations/:id/signal",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/consultations/[id]/signal/route.ts"
+    },
+    {
+      "route": "/api/doctor/apply",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/doctor/apply/route.ts"
+    },
+    {
+      "route": "/api/documents",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/documents/route.ts"
+    },
+    {
+      "route": "/api/documents/:id/confirm",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/documents/[id]/confirm/route.ts"
+    },
+    {
+      "route": "/api/documents/:id/organize",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "auth": "getUser",
+      "file": "api/documents/[id]/organize/route.ts"
+    },
+    {
+      "route": "/api/documents/:id/replace",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/documents/[id]/replace/route.ts"
+    },
+    {
+      "route": "/api/documents/:id/signed-url",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/documents/[id]/signed-url/route.ts"
+    },
+    {
+      "route": "/api/extractions/:id/confirm",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/extractions/[id]/confirm/route.ts"
+    },
+    {
+      "route": "/api/facilities",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/facilities/route.ts"
+    },
+    {
+      "route": "/api/health-card",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "auth": "getUser",
+      "file": "api/health-card/route.ts"
+    },
+    {
+      "route": "/api/health-space",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/health-space/route.ts"
+    },
+    {
+      "route": "/api/health-tracking",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/health-tracking/route.ts"
+    },
+    {
+      "route": "/api/health-tracking/measurements/:id",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "auth": "getUser",
+      "file": "api/health-tracking/measurements/[id]/route.ts"
+    },
+    {
+      "route": "/api/health-tracking/tests/:testKey",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/health-tracking/tests/[testKey]/route.ts"
+    },
+    {
+      "route": "/api/medicines/:medicineId",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/medicines/[medicineId]/route.ts"
+    },
+    {
+      "route": "/api/medicines/link",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/medicines/link/route.ts"
+    },
+    {
+      "route": "/api/medicines/resolve-prescription-item",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/medicines/resolve-prescription-item/route.ts"
+    },
+    {
+      "route": "/api/medicines/search",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/medicines/search/route.ts"
+    },
+    {
+      "route": "/api/metrics/record",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/metrics/record/route.ts"
+    },
+    {
+      "route": "/api/metrics/summary",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/metrics/summary/route.ts"
+    },
+    {
+      "route": "/api/pharmacy/requests",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/pharmacy/requests/route.ts"
+    },
+    {
+      "route": "/api/pharmacy/requests/inbox",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/pharmacy/requests/inbox/route.ts"
+    },
+    {
+      "route": "/api/pharmacy/requests/respond",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/pharmacy/requests/respond/route.ts"
+    },
+    {
+      "route": "/api/pharmacy/stock",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/pharmacy/stock/route.ts"
+    },
+    {
+      "route": "/api/pharmacy/stock/patient-lookup",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/pharmacy/stock/patient-lookup/route.ts"
+    },
+    {
+      "route": "/api/portfolios",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/portfolios/route.ts"
+    },
+    {
+      "route": "/api/profile",
+      "methods": [
+        "PATCH"
+      ],
+      "auth": "getUser",
+      "file": "api/profile/route.ts"
+    },
+    {
+      "route": "/api/profile/display-name",
+      "methods": [
+        "PATCH"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/profile/display-name/route.ts"
+    },
+    {
+      "route": "/api/reports",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/reports/route.ts"
+    },
+    {
+      "route": "/api/reports/:documentId",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/reports/[documentId]/route.ts"
+    },
+    {
+      "route": "/api/routines",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/routines/route.ts"
+    },
+    {
+      "route": "/api/routines/activate",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/routines/activate/route.ts"
+    },
+    {
+      "route": "/api/routines/occurrences/:id",
+      "methods": [
+        "PATCH"
+      ],
+      "auth": "getUser",
+      "file": "api/routines/occurrences/[id]/route.ts"
+    },
+    {
+      "route": "/api/runs",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/runs/route.ts"
+    },
+    {
+      "route": "/api/runs/:id",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/runs/[id]/route.ts"
+    },
+    {
+      "route": "/api/runs/:id/step",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/runs/[id]/step/route.ts"
+    },
+    {
+      "route": "/api/signals",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/signals/route.ts"
+    },
+    {
+      "route": "/api/signals/:id/re-evaluate",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/signals/[id]/re-evaluate/route.ts"
+    },
+    {
+      "route": "/api/signals/actions",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/signals/actions/route.ts"
+    },
+    {
+      "route": "/api/staff/admin/roles",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "auth": "getUser",
+      "file": "api/staff/admin/roles/route.ts"
+    },
+    {
+      "route": "/api/timeline",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getUser",
+      "file": "api/timeline/route.ts"
+    },
+    {
+      "route": "/api/triage/interpret",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/triage/interpret/route.ts"
+    },
+    {
+      "route": "/api/upload-sessions",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/upload-sessions/route.ts"
+    },
+    {
+      "route": "/api/upload-sessions/finalize",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/upload-sessions/finalize/route.ts"
+    },
+    {
+      "route": "/api/upload-sessions/page",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/upload-sessions/page/route.ts"
+    },
+    {
+      "route": "/api/upload-sessions/page/verify",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/upload-sessions/page/verify/route.ts"
+    },
+    {
+      "route": "/api/user-data/:table",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/user-data/[table]/route.ts"
+    },
+    {
+      "route": "/api/user-data/pending-count",
+      "methods": [
+        "GET"
+      ],
+      "auth": "getSessionUser",
+      "file": "api/user-data/pending-count/route.ts"
+    },
+    {
+      "route": "/api/voice/interpret",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/voice/interpret/route.ts"
+    },
+    {
+      "route": "/api/voice/telemetry",
+      "methods": [
+        "POST"
+      ],
+      "auth": "getUser",
+      "file": "api/voice/telemetry/route.ts"
+    }
+  ]
+}

@@ -4,6 +4,10 @@ import { getAdminAuth, isFirebaseAdminConfigured } from "@/lib/firebase/admin";
 import { provisionIdentity } from "@/lib/firebase/provision";
 import { RegisterSchema } from "@/lib/auth/schemas";
 import { hit } from "@/lib/api/rate-limit";
+import { registerAccount, createSession } from "@/lib/auth/db-auth";
+import { isDatabaseAuth } from "@/lib/auth/provider";
+import { setSessionCookie } from "@/lib/firebase/session-cookie";
+import { invalidateSessionProfileCache } from "@/lib/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +36,8 @@ export async function POST(req: Request) {
   if (!rl.allowed) {
     return NextResponse.json(
       { code: "TOO_MANY_REQUESTS" },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
     );
-  }
-
-  if (!isFirebaseAdminConfigured()) {
-    return NextResponse.json({ code: "SERVER_NOT_CONFIGURED" }, { status: 503 });
   }
 
   let body: unknown;
@@ -49,6 +49,45 @@ export async function POST(req: Request) {
   const parsed = RegisterSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
+  }
+
+  // ── Database provider (default when Firebase is not configured) ──
+  // Same schema, same field set, same error codes as the Firebase path — only
+  // where the account lives changes. The session cookie is issued right here,
+  // so the client is signed in after registering without a token exchange.
+  if (isDatabaseAuth()) {
+    const result = await registerAccount({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      displayName: parsed.data.name,
+    });
+    if (!result.ok) {
+      if (result.code === "EMAIL_TAKEN") {
+        return NextResponse.json(
+          { code: "EMAIL_ALREADY_EXISTS" },
+          { status: 422 },
+        );
+      }
+      return NextResponse.json({ code: "INVALID_BODY" }, { status: 400 });
+    }
+    invalidateSessionProfileCache(result.account.id);
+    const { token } = await createSession(
+      result.account.id,
+      req.headers.get("user-agent"),
+    );
+    const res = NextResponse.json({
+      data: { ok: true, userId: result.account.id },
+      error: null,
+    });
+    setSessionCookie(res, token);
+    return res;
+  }
+
+  if (!isFirebaseAdminConfigured()) {
+    return NextResponse.json(
+      { code: "SERVER_NOT_CONFIGURED" },
+      { status: 503 },
+    );
   }
 
   const email = parsed.data.email.toLowerCase();
@@ -67,7 +106,7 @@ export async function POST(req: Request) {
     if (code === "auth/email-already-in-use") {
       return NextResponse.json(
         { code: "EMAIL_ALREADY_EXISTS" },
-        { status: 422 }
+        { status: 422 },
       );
     }
     if (code === "auth/invalid-email" || code === "auth/weak-password") {
@@ -94,7 +133,7 @@ export async function POST(req: Request) {
       }
       return NextResponse.json(
         { code: "EMAIL_ALREADY_EXISTS" },
-        { status: 422 }
+        { status: 422 },
       );
     }
 

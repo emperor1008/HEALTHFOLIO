@@ -24,13 +24,11 @@
 import { headers } from "next/headers";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 import { readSessionCookie } from "@/lib/firebase/session-cookie";
+import { getDemoIdentity, isDemoUserId } from "@/lib/preview/identity";
+import { resolveSession as resolveDatabaseSession } from "@/lib/auth/db-auth";
 
 export type AppRole =
-  | "patient"
-  | "doctor_pending"
-  | "doctor"
-  | "facility_admin"
-  | "platform_admin";
+  "patient" | "doctor_pending" | "doctor" | "facility_admin" | "platform_admin";
 
 export const APP_ROLES: readonly AppRole[] = [
   "patient",
@@ -93,13 +91,12 @@ async function getCachedProfile(userId: string): Promise<CachedProfile | null> {
     const raw = snap.data() ?? {};
     const roles = Array.isArray(raw.roles)
       ? (raw.roles.filter((r): r is AppRole =>
-          APP_ROLES.includes(r as AppRole)
+          APP_ROLES.includes(r as AppRole),
         ) as AppRole[])
       : [];
     const profile: CachedProfile = {
       email: typeof raw.email === "string" ? raw.email : "",
-      displayName:
-        typeof raw.displayName === "string" ? raw.displayName : "",
+      displayName: typeof raw.displayName === "string" ? raw.displayName : "",
       roles,
       expiresAt: Date.now() + PROFILE_TTL_MS,
     };
@@ -113,31 +110,78 @@ async function getCachedProfile(userId: string): Promise<CachedProfile | null> {
 }
 
 /**
- * Resolve the Firebase session for the current request. Null when signed
- * out, when the cookie is stale/invalid, or when auth is not configured —
- * callers return 401 (same posture as the old Better Auth resolver).
+ * Resolve the session for the current request.
+ *
+ * Order:
+ *   1. A real session — the database-backed opaque token first, then the
+ *      Firebase `__session` cookie. A signed-in user is NEVER overridden by
+ *      the preview identity.
+ *   2. The preview/demo identity — only when there is no usable session AND
+ *      the server-side preview gate passes (HF_DEMO_MODE + environment +
+ *      host verification). This is the ONE place a sign-in-free identity
+ *      enters the application, so every page guard, layout and API route
+ *      inherits it without local bypass code.
+ *
+ * Null when signed out and preview mode is off — callers return 401 (same
+ * posture as before).
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
+  let token: string | null = null;
   try {
     const h = await headers();
-    const token = readSessionCookie(h.get("cookie"));
-    if (!token) return null;
-    const decoded = await getAdminAuth().verifySessionCookie(token);
-    const uid = decoded.uid;
-    if (!uid) return null;
-    // Session-cookie claims usually carry email/name, but the identity doc
-    // is the authoritative fallback (and the only source before claims
-    // propagate). Cached, so this is not an extra round-trip per request.
-    const profile = await getCachedProfile(uid);
-    return {
-      id: uid,
-      email: decoded.email || profile?.email || "",
-      name: decoded.name || profile?.displayName || "",
-    };
+    token = readSessionCookie(h.get("cookie"));
   } catch {
-    // Cookie/verification errors resolve to "no session" — callers return 401.
-    return null;
+    token = null; // no request context (build, script) → no cookie to read
   }
+
+  if (token) {
+    try {
+      // Database-backed session: an opaque random token (no JWT structure).
+      // Tried before the identity-provider verification because that provider
+      // only ever issues dotted JWTs — so this costs at most one indexed lookup.
+      if (!token.includes(".")) {
+        try {
+          const account = await resolveDatabaseSession(token);
+          if (account) {
+            return {
+              id: account.id,
+              email: account.email,
+              name: account.displayName ?? "",
+            };
+          }
+        } catch {
+          // Database unavailable → fall through; the token is rejected below.
+        }
+      }
+
+      const decoded = await getAdminAuth().verifySessionCookie(token);
+      const uid = decoded.uid;
+      if (uid) {
+        // Session-cookie claims usually carry email/name, but the identity
+        // doc is the authoritative fallback (and the only source before claims
+        // propagate). Cached, so this is not an extra round-trip per request.
+        const profile = await getCachedProfile(uid);
+        return {
+          id: uid,
+          email: decoded.email || profile?.email || "",
+          name: decoded.name || profile?.displayName || "",
+        };
+      }
+    } catch {
+      // Invalid/expired cookie → treat as signed-out and try preview below.
+    }
+  }
+
+  // No usable session: the preview identity, only if the gate allows it.
+  try {
+    const demo = await getDemoIdentity();
+    if (demo) {
+      return { id: demo.id, email: demo.email, name: demo.name };
+    }
+  } catch {
+    // Gate evaluation must never crash a request — signed-out it is.
+  }
+  return null;
 }
 
 /**
@@ -145,9 +189,50 @@ export async function getSessionUser(): Promise<SessionUser | null> {
  * 60s cache. Unknown values are filtered out; a missing doc yields [].
  */
 export async function getActiveRoles(userId: string): Promise<AppRole[]> {
+  if (isDemoUserId(userId)) {
+    // Preview roles come from server configuration and are validated against
+    // the same allowlist every other role source uses — an operator can widen
+    // them (HF_DEMO_ROLES), but an unknown value can never become a role.
+    const demo = await getDemoIdentity();
+    if (!demo) return [];
+    return demo.roles.filter((r): r is AppRole =>
+      APP_ROLES.includes(r as AppRole),
+    );
+  }
   try {
     const profile = await getCachedProfile(userId);
-    return profile ? profile.roles : [];
+    if (profile) return profile.roles;
+    // No identity document: this is a database-backed account (migration 032),
+    // whose roles live in `auth_accounts.roles`. Cached for the same TTL as a
+    // profile read so a page load never issues one query per guard.
+    return await getDatabaseRoles(userId);
+  } catch {
+    return [];
+  }
+}
+
+const DB_ROLES_TTL_MS = 60_000;
+const dbRoleCache = new Map<string, { roles: AppRole[]; expiresAt: number }>();
+
+export function invalidateDatabaseRoleCache(userId?: string): void {
+  if (userId) dbRoleCache.delete(userId);
+  else dbRoleCache.clear();
+}
+
+/** Roles stored on a database-backed account, cached 60s. Unknown → []. */
+async function getDatabaseRoles(userId: string): Promise<AppRole[]> {
+  const hit = dbRoleCache.get(userId);
+  if (hit && hit.expiresAt > Date.now()) return hit.roles;
+  try {
+    const { findAccountById } = await import("@/lib/auth/db-auth");
+    const account = await findAccountById(userId);
+    const roles = account
+      ? account.roles.filter((r): r is AppRole =>
+          APP_ROLES.includes(r as AppRole),
+        )
+      : [];
+    dbRoleCache.set(userId, { roles, expiresAt: Date.now() + DB_ROLES_TTL_MS });
+    return roles;
   } catch {
     return [];
   }

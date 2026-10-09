@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/firebase/session-cookie";
+import { evaluatePreviewGate } from "@/lib/preview/gate";
 
 /**
  * Route proxy (Next.js 16 convention) guarding the Firebase session cookie.
@@ -35,7 +36,12 @@ export const PUBLIC_ROUTES = [
   "/offline",
 ];
 
-const AUTH_PAGES = ["/sign-in", "/register", "/forgot-password", "/reset-password"];
+const AUTH_PAGES = [
+  "/sign-in",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -46,6 +52,21 @@ export async function proxy(request: NextRequest) {
   // offline sync engine and every programmatic client — and the new session
   // exchange endpoint must be reachable by signed-out users.
   if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
+  // Preview mode: the server-side gate (HF_DEMO_MODE + environment + host
+  // verification) decides whether pages may be opened without a session
+  // cookie. It reads server configuration only — a browser-set flag can never
+  // open this door. When the gate is closed, nothing below changes.
+  const preview = evaluatePreviewGate({
+    demoMode: process.env.HF_DEMO_MODE,
+    deploymentEnv: process.env.HF_DEPLOYMENT_ENV,
+    previewHosts: process.env.HF_PREVIEW_HOSTS,
+    nodeEnv: process.env.NODE_ENV,
+    host: request.headers.get("host"),
+  });
+  if (preview.enabled) {
     return NextResponse.next();
   }
 

@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import crypto from "crypto";
+import { getUser } from "@/lib/auth-helpers";
 
 const createSessionSchema = z.object({
   portfolioId: z.string().uuid(),
@@ -18,15 +19,12 @@ const createSessionSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
-  if (authError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: { code: "AUTH_REQUIRED", message: "Authentication required" } },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -35,12 +33,18 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Invalid upload session parameters" } },
-      { status: 400 }
+      {
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid upload session parameters",
+        },
+      },
+      { status: 400 },
     );
   }
 
-  const { portfolioId, sourceType, expectedPageCount, idempotencyKey } = parsed.data;
+  const { portfolioId, sourceType, expectedPageCount, idempotencyKey } =
+    parsed.data;
 
   // Verify portfolio ownership
   const admin = await createAdminClient();
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
   if (!portfolio) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Portfolio not found" } },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -95,8 +99,13 @@ export async function POST(request: NextRequest) {
 
   if (sessionError) {
     return NextResponse.json(
-      { error: { code: "DATABASE_WRITE_FAILED", message: "Could not create upload session" } },
-      { status: 500 }
+      {
+        error: {
+          code: "DATABASE_WRITE_FAILED",
+          message: "Could not create upload session",
+        },
+      },
+      { status: 500 },
     );
   }
 

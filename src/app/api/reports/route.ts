@@ -5,19 +5,17 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
+import { getUser } from "@/lib/auth-helpers";
 
 export async function GET(_request: NextRequest) {
   const supabase = createClient();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
-  if (authError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: { code: "AUTH_REQUIRED", message: "Authentication required" } },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -30,7 +28,7 @@ export async function GET(_request: NextRequest) {
   let query = supabase
     .from("laboratory_reports")
     .select(
-      "id, document_id, laboratory_name, report_number, report_date, collection_date, extraction_status, review_status, overall_confidence, measurement_count, review_count, public_summary, created_at, updated_at"
+      "id, document_id, laboratory_name, report_number, report_date, collection_date, extraction_status, review_status, overall_confidence, measurement_count, review_count, public_summary, created_at, updated_at",
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
@@ -48,7 +46,7 @@ export async function GET(_request: NextRequest) {
   if (error) {
     return NextResponse.json(
       { error: { code: "DATABASE_ERROR", message: "Failed to load reports" } },
-      { status: 500 }
+      { status: 500 },
     );
   }
 

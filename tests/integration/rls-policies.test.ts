@@ -84,14 +84,18 @@ const CASES: TableCase[] = [
     table: "document_share_consents",
     seed: `insert into document_share_consents (care_request_id, patient_id, document_ids)
            select cr.id, $1, '{}'::uuid[] from care_requests cr where cr.user_id = $1 limit 1 returning id`,
-  },{ table: "clinician_profiles",
+  },
+  {
+    table: "clinician_profiles",
     seed: `select id from clinician_profiles where user_id = $1`,
   },
   {
     table: "clinician_availability",
     seed: `insert into clinician_availability (clinician_id, state, changed_by)
            select cp.id, 'available', $1 from clinician_profiles cp where cp.user_id = $1 returning id`,
-  },{ table: "facility_memberships",
+  },
+  {
+    table: "facility_memberships",
     seed: `select id from facility_memberships where user_id = $1 and facility_id = (select id from facilities limit 1)`,
   },
   {
@@ -145,7 +149,9 @@ const CASES: TableCase[] = [
     seed: `insert into pharmacy_availability_requests (patient_id, pharmacy_id, medicine_id, medicine_label, idempotency_key)
            select $1, p.id, 'med-rls', 'RLS medicine', gen_random_uuid()::text
              from pharmacies p limit 1 returning id`,
-  },{ table: "pharmacy_memberships",
+  },
+  {
+    table: "pharmacy_memberships",
     seed: `select id from pharmacy_memberships where user_id = $1 and pharmacy_id = (select id from pharmacies limit 1)`,
   },
   {
@@ -177,26 +183,26 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
     // no `auth.uid()` default, so both identities get their own row.
     await db.sql.query(
       "insert into profiles (id, display_name) values ($1, 'RLS A')",
-      [patientA]
+      [patientA],
     );
     await db.sql.query(
       "insert into profiles (id, display_name) values ($1, 'RLS B')",
-      [patientB]
+      [patientB],
     );
 
     // Better Auth's canonical table, needed by app_roles/health_card_facts.
     await db.sql.query(
       'insert into "user" (id, name, email) values ($1::uuid, $2, $3)',
-      [patientA, "RLS A", "rls-a@example.test"]
+      [patientA, "RLS A", "rls-a@example.test"],
     );
     await db.sql.query(
       'insert into "user" (id, name, email) values ($1::uuid, $2, $3)',
-      [patientB, "RLS B", "rls-b@example.test"]
+      [patientB, "RLS B", "rls-b@example.test"],
     );
 
     await db.sql.query("insert into facilities (name) values ('RLS Facility')");
     await db.sql.query(
-      `insert into pharmacies (name, verification_state) values ('RLS Pharmacy', 'verified')`
+      `insert into pharmacies (name, verification_state) values ('RLS Pharmacy', 'verified')`,
     );
 
     // Full Patient B chain: every table that probes reference an existing B row
@@ -207,89 +213,89 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
     await db.asRole("service_role");
     const a = await db.sql.query<{ id: string }>(
       "insert into portfolios (user_id, label) values ($1, 'A') returning id",
-      [patientA]
+      [patientA],
     );
     const b = await db.sql.query<{ id: string }>(
       "insert into portfolios (user_id, label) values ($1, 'B') returning id",
-      [patientB]
+      [patientB],
     );
     portfolioA = a.rows[0].id;
     portfolioB = b.rows[0].id;
 
     await db.sql.query(
       `insert into care_requests (user_id, reason, idempotency_key) values ($1, 'A request', 'a-key')`,
-      [patientA]
+      [patientA],
     );
     await db.sql.query(
       `insert into care_requests (user_id, reason, idempotency_key) values ($1, 'B request', 'b-key')`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into documents (id, user_id, portfolio_id, original_name, storage_path, mime_type, size_bytes)
        values (gen_random_uuid(), $1, $2, 'a.pdf', 'a/a.pdf', 'application/pdf', 10)`,
-      [patientA, portfolioA]
+      [patientA, portfolioA],
     );
     await db.sql.query(
       `insert into documents (id, user_id, portfolio_id, original_name, storage_path, mime_type, size_bytes)
        values (gen_random_uuid(), $1, $2, 'b.pdf', 'b/b.pdf', 'application/pdf', 10)`,
-      [patientB, portfolioB]
+      [patientB, portfolioB],
     );
     await db.sql.query(
       `insert into clinician_profiles (user_id, display_name) values ($1, 'RLS Clinician')`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into clinician_availability (clinician_id, state, changed_by)
        select cp.id, 'available', $1 from clinician_profiles cp where cp.user_id = $1`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into care_request_assignments (care_request_id, clinician_id, state, assigned_by)
        select cr.id, cp.id, 'assigned', $1 from care_requests cr, clinician_profiles cp
         where cr.user_id = $1 and cp.user_id = $1`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into care_appointments (care_request_id, clinician_id, patient_id, mode, state)
        select cr.id, cp.id, $1, 'text', 'assigned' from care_requests cr, clinician_profiles cp
         where cr.user_id = $1 and cp.user_id = $1`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into facility_memberships (user_id, facility_id, role)
        select $1, f.id, 'clinician' from facilities f limit 1`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into clinician_document_access (care_request_id, clinician_profile_id)
        select cr.id, cp.id from care_requests cr, clinician_profiles cp
         where cr.user_id = $1 and cp.user_id = $1`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into clinician_document_access_audit (care_request_id, clinician_profile_id, document_id, event)
        select cr.id, cp.id, d.id, 'access_granted'
          from care_requests cr, clinician_profiles cp, documents d
         where cr.user_id = $1 and cp.user_id = $1 and d.user_id = $1`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into pharmacy_stock_events (pharmacy_id, medicine_id, medicine_label, status, updated_by, idempotency_key)
        select p.id, 'med-rls', 'RLS medicine', 'available', $1, gen_random_uuid()::text
          from pharmacies p`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into pharmacy_availability_requests (patient_id, pharmacy_id, medicine_id, medicine_label, idempotency_key)
        select $1, p.id, 'med-rls', 'RLS medicine', gen_random_uuid()::text
          from pharmacies p`,
-      [patientB]
+      [patientB],
     );
     await db.sql.query(
       `insert into pharmacy_memberships (user_id, pharmacy_id, role)
        select $1, p.id, 'operator' from pharmacies p
        on conflict (user_id, pharmacy_id) do nothing`,
-      [patientB]
+      [patientB],
     );
   }, 180_000);
 
@@ -307,12 +313,16 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
       await db.asRole("service_role");
       let rowId: string;
       try {
-        const params = seed.includes("$2") ? [patientB, portfolioB] : [patientB];
+        const params = seed.includes("$2")
+          ? [patientB, portfolioB]
+          : [patientB];
         const seeded = await db.sql.query<{ id: string }>(seed, params);
         rowId = seeded.rows[0]?.id;
         if (!rowId) throw new Error("seed returned no rows");
       } catch (error) {
-        failures.push(`${table}: seed failed — ${(error as Error).message.split("\n")[0]}`);
+        failures.push(
+          `${table}: seed failed — ${(error as Error).message.split("\n")[0]}`,
+        );
         continue;
       }
 
@@ -327,7 +337,7 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
         await db.asUser(patientA);
         const visible = await db.sql.query<{ count: number }>(
           `select count(*)::int as count from ${table} where ${probe}::text = $1`,
-          [rowId]
+          [rowId],
         );
         if (visible.rows[0].count !== 0) {
           failures.push(`${table}: A can READ B's row`);
@@ -338,14 +348,15 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
       await db.asUser(patientA);
       const updated = await db.sql.query(
         `update ${table} set ${probe} = ${probe} where ${probe}::text = $1`,
-        [rowId]
+        [rowId],
       );
       if ((updated.affectedRows ?? 0) !== 0) {
         failures.push(`${table}: A can UPDATE B's row`);
       }
-      const deleted = await db.sql.query(`delete from ${table} where ${probe}::text = $1`, [
-        rowId,
-      ]);
+      const deleted = await db.sql.query(
+        `delete from ${table} where ${probe}::text = $1`,
+        [rowId],
+      );
       if ((deleted.affectedRows ?? 0) !== 0) {
         failures.push(`${table}: A can DELETE B's row`);
       }
@@ -355,7 +366,7 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
       try {
         const anon = await db.sql.query<{ count: number }>(
           `select count(*)::int as count from ${table} where ${probe}::text = $1`,
-          [rowId]
+          [rowId],
         );
         if (anon.rows[0].count !== 0) {
           failures.push(`${table}: anon can READ the row`);
@@ -368,7 +379,7 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
       await db.asRole("service_role");
       const still = await db.sql.query<{ count: number }>(
         `select count(*)::int as count from ${table} where ${probe}::text = $1`,
-        [rowId]
+        [rowId],
       );
       if (still.rows[0].count !== 1) {
         failures.push(`${table}: row vanished after the probes`);
@@ -385,7 +396,10 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
         "profiles",
         `insert into profiles (id, display_name) values ($1, 'stolen')`,
       ],
-      ["portfolios", `insert into portfolios (user_id, label) values ($1, 'stolen')`],
+      [
+        "portfolios",
+        `insert into portfolios (user_id, label) values ($1, 'stolen')`,
+      ],
       [
         "documents",
         `insert into documents (id, user_id, portfolio_id, original_name, storage_path, mime_type, size_bytes)
@@ -399,8 +413,14 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
         "consents",
         `insert into consents (user_id, consent_type, policy_version) values ($1, 'privacy', '1.0')`,
       ],
-      ["reminders", `insert into reminders (user_id, remind_at, message) values ($1, now(), 'stolen')`],
-      ["audit_events", `insert into audit_events (user_id, action, resource_type) values ($1, 'x', 'y')`],
+      [
+        "reminders",
+        `insert into reminders (user_id, remind_at, message) values ($1, now(), 'stolen')`,
+      ],
+      [
+        "audit_events",
+        `insert into audit_events (user_id, action, resource_type) values ($1, 'x', 'y')`,
+      ],
     ];
 
     for (const [label, sql] of attempts) {
@@ -408,13 +428,18 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
       let rejected = false;
       let insertedWithStolenOwner = false;
       try {
-        const res = await db.sql.query(sql, sql.includes("$2") ? [patientB, portfolioA] : [patientB]);
+        const res = await db.sql.query(
+          sql,
+          sql.includes("$2") ? [patientB, portfolioA] : [patientB],
+        );
         insertedWithStolenOwner = (res.affectedRows ?? res.rows.length) > 0;
       } catch {
         rejected = true;
       }
       if (!rejected && insertedWithStolenOwner) {
-        failures.push(`${label}: A inserted a row owned by B (WITH CHECK missing)`);
+        failures.push(
+          `${label}: A inserted a row owned by B (WITH CHECK missing)`,
+        );
       }
     }
     expect(failures).toEqual([]);
@@ -423,7 +448,7 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
   it("service_role bypasses RLS — why every call site must scope its own queries", async () => {
     await db.asRole("service_role");
     const { rows } = await db.sql.query<{ count: number }>(
-      "select count(*)::int as count from profiles"
+      "select count(*)::int as count from profiles",
     );
     expect(rows[0].count).toBeGreaterThanOrEqual(2);
   });
@@ -433,7 +458,7 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
       `select c.relname from pg_class c
          join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity = false
-        order by c.relname`
+        order by c.relname`,
     );
     expect(rows.map((r) => r.relname)).toEqual([]);
   });
@@ -444,14 +469,20 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
          join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity = true
           and not exists (select 1 from pg_policy p where p.polrelid = c.oid)
-        order by c.relname`
+        order by c.relname`,
     );
     // RLS enabled with zero policies: anon/authenticated cannot read a single
     // row, and the server reaches them with the service-role key. Reviewed
     // 2026-10-05 — adding a table here is a deliberate security decision.
+    // 2026-10-09 — migration 032 added the database-backed auth tables; they
+    // are deliberately policy-less AND revoked from the API roles (see the
+    // credential-exposure test below), so they belong in this set.
     expect(rows.map((r) => r.relname)).toEqual([
       "account",
       "app_roles",
+      "auth_accounts",
+      "auth_reset_tokens",
+      "auth_sessions",
       "doctor_applications",
       "facility_assignments",
       "health_card_facts",
@@ -474,11 +505,11 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
     await db.asRole("service_role");
     await db.sql.query(
       `insert into "user" (id, name, email) values ($1, 'Victim', 'victim@example.test')`,
-      ["22222222-2222-4222-8222-222222222222"]
+      ["22222222-2222-4222-8222-222222222222"],
     );
     await db.sql.query(
       `insert into "session" ("expiresAt", token, "userId") values (now() + interval '1 day', $1, $2)`,
-      ["SECRET-SESSION-TOKEN", "22222222-2222-4222-8222-222222222222"]
+      ["SECRET-SESSION-TOKEN", "22222222-2222-4222-8222-222222222222"],
     );
     await db.sql.query(
       `insert into "account" ("accountId", "providerId", "userId", password) values ($1, 'credential', $2, $3)`,
@@ -486,17 +517,27 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
         "victim@example.test",
         "22222222-2222-4222-8222-222222222222",
         "$2b$10$HASHED",
-      ]
+      ],
     );
 
     for (const role of ["anon", "authenticated"] as const) {
       if (role === "anon") await db.asAnon();
       else await db.asUser(patientA);
-      for (const table of ["user", "session", "account", "verification"] as const) {
+      for (const table of [
+        "user",
+        "session",
+        "account",
+        "verification",
+        // Database-backed auth (migration 032): password hashes, session-token
+        // hashes and recovery tokens must be unreachable by the API roles too.
+        "auth_accounts",
+        "auth_sessions",
+        "auth_reset_tokens",
+      ] as const) {
         let rows: number | "denied";
         try {
           const res = await db.sql.query<{ count: number }>(
-            `select count(*)::int as count from "${table}"`
+            `select count(*)::int as count from "${table}"`,
           );
           rows = res.rows[0].count;
         } catch {
@@ -510,34 +551,36 @@ describe("Phase 6 §6 — RLS on the migrated schema", () => {
     // table owner bypasses its own RLS — so auth still works.
     await db.asRole("service_role");
     const owner = await db.sql.query<{ count: number }>(
-      'select count(*)::int as count from "session"'
+      'select count(*)::int as count from "session"',
     );
     expect(owner.rows[0].count).toBeGreaterThanOrEqual(1);
-    await db.sql.query(
-      'update "session" set token = $1 where token = $2',
-      ["ROTATED-TOKEN", "SECRET-SESSION-TOKEN"]
-    );
-    await db.sql.query('delete from "session" where token = $1', ["ROTATED-TOKEN"]);
+    await db.sql.query('update "session" set token = $1 where token = $2', [
+      "ROTATED-TOKEN",
+      "SECRET-SESSION-TOKEN",
+    ]);
+    await db.sql.query('delete from "session" where token = $1', [
+      "ROTATED-TOKEN",
+    ]);
   });
 
   it("protects private storage objects by folder ownership", async () => {
     await db.asRole("service_role");
     await db.sql.query(
       "insert into storage.objects (bucket_id, name, owner) values ('documents', $1, $2)",
-      [ `${patientB}/private/secret.pdf`, patientB]
+      [`${patientB}/private/secret.pdf`, patientB],
     );
 
     await db.asUser(patientB);
     const own = await db.sql.query<{ count: number }>(
       "select count(*)::int as count from storage.objects where name like $1",
-      [`${patientB}/%`]
+      [`${patientB}/%`],
     );
     expect(own.rows[0].count).toBe(1);
 
     await db.asUser(patientA);
     const foreign = await db.sql.query<{ count: number }>(
       "select count(*)::int as count from storage.objects where name like $1",
-      [`${patientB}/%`]
+      [`${patientB}/%`],
     );
     expect(foreign.rows[0].count).toBe(0);
   });

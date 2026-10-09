@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/auth-helpers";
 import { z } from "zod";
-import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
+import {
+  generateRequestId,
+  createError,
+  formatErrorResponse,
+} from "@/lib/errors";
+import { isDatabaseAuth } from "@/lib/auth/provider";
+import { revokeAllSessions, deleteAccount } from "@/lib/auth/db-auth";
+import { isDemoUserId } from "@/lib/preview/identity";
+import { clearSessionCookie } from "@/lib/firebase/session-cookie";
+import { invalidateSessionProfileCache } from "@/lib/auth-session";
 
 const deleteSchema = z.object({
   confirmation: z.literal("DELETE"),
 });
 
+/**
+ * POST /api/account/delete — permanent account deletion.
+ *
+ * Deliberately NOT available in preview mode: the reserved demo identity has
+ * no account to delete, and wiping the shared preview dataset would destroy
+ * the thing the preview exists to show. It stays a protected, destructive,
+ * explicitly confirmed operation.
+ *
+ * Supabase Auth is gone: the credential row is removed from the database
+ * provider (or from Firebase when that provider is configured), and the
+ * session cookie is cleared by us rather than by an external sign-out call.
+ */
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId();
 
@@ -19,9 +39,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         formatErrorResponse(
           createError("AUTH_REQUIRED", "Authentication required"),
-          requestId
+          requestId,
         ),
-        { status: 401 }
+        { status: 401 },
+      );
+    }
+
+    if (isDemoUserId(user.id)) {
+      return NextResponse.json(
+        formatErrorResponse(
+          createError(
+            "UNAUTHORIZED",
+            "Account deletion is disabled in preview mode.",
+          ),
+          requestId,
+        ),
+        { status: 403 },
       );
     }
 
@@ -33,27 +66,11 @@ export async function POST(request: NextRequest) {
         formatErrorResponse(
           createError(
             "INVALID_REQUEST",
-            'Type DELETE to confirm account deletion.'
+            "Type DELETE to confirm account deletion.",
           ),
-          requestId
+          requestId,
         ),
-        { status: 400 }
-      );
-    }
-
-    // Check if admin key is available for user deletion
-    const hasAdminKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!hasAdminKey) {
-      return NextResponse.json(
-        formatErrorResponse(
-          createError(
-            "CONFIGURATION_ERROR",
-            "Account deletion is not configured. The administrator needs to set SUPABASE_SERVICE_ROLE_KEY."
-          ),
-          requestId
-        ),
-        { status: 503 }
+        { status: 400 },
       );
     }
 
@@ -66,7 +83,7 @@ export async function POST(request: NextRequest) {
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", userId);
 
-    // 2. Delete storage objects
+    // 2. Delete storage objects (best-effort)
     try {
       const { data: portfolio } = await admin
         .from("portfolios")
@@ -76,7 +93,6 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (portfolio) {
-        // List and remove all storage files for this user
         const userPath = userId;
         const { data: folders } = await admin.storage
           .from("documents")
@@ -91,7 +107,7 @@ export async function POST(request: NextRequest) {
 
             if (subfolders) {
               const filePaths = subfolders.map(
-                (f) => `${folderPath}/${f.name}`
+                (f) => `${folderPath}/${f.name}`,
               );
               if (filePaths.length > 0) {
                 await admin.storage.from("documents").remove(filePaths);
@@ -126,30 +142,46 @@ export async function POST(request: NextRequest) {
     // Delete profile
     await admin.from("profiles").delete().eq("id", userId);
 
-    // 4. Delete the Supabase Auth user
-    const { error: deleteAuthError } = await admin.auth.admin.deleteUser(
-      userId
-    );
-
-    if (deleteAuthError) {
-      // Data is already deleted; log the auth deletion failure
-      return NextResponse.json(
-        formatErrorResponse(
-          createError(
-            "PARTIAL_DELETION",
-            "Your data has been deleted, but account deactivation could not complete. Please contact support."
+    // 4. Delete the credential account + every session that could use it.
+    if (isDatabaseAuth()) {
+      await revokeAllSessions(userId);
+      const removed = await deleteAccount(userId);
+      if (!removed) {
+        return NextResponse.json(
+          formatErrorResponse(
+            createError(
+              "PARTIAL_DELETION",
+              "Your data has been deleted, but the account record could not be removed. Please contact support.",
+            ),
+            requestId,
           ),
-          requestId
-        ),
-        { status: 200 }
-      );
+          { status: 200 },
+        );
+      }
+    } else {
+      // Firebase provider: delete the identity there (best-effort — the data
+      // rows above are already gone).
+      try {
+        const { getAdminAuth } = await import("@/lib/firebase/admin");
+        await getAdminAuth().deleteUser(userId);
+      } catch {
+        return NextResponse.json(
+          formatErrorResponse(
+            createError(
+              "PARTIAL_DELETION",
+              "Your data has been deleted, but account deactivation could not complete. Please contact support.",
+            ),
+            requestId,
+          ),
+          { status: 200 },
+        );
+      }
     }
 
-    // 5. Sign out
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    invalidateSessionProfileCache(userId);
 
-    return NextResponse.json({
+    // 5. Clear the session cookie (no external sign-out call any more).
+    const res = NextResponse.json({
       data: {
         success: true,
         message: "Your account and all data have been permanently deleted.",
@@ -157,13 +189,15 @@ export async function POST(request: NextRequest) {
       error: null,
       requestId,
     });
+    clearSessionCookie(res);
+    return res;
   } catch {
     return NextResponse.json(
       formatErrorResponse(
         createError("INTERNAL_ERROR", "Something went wrong"),
-        requestId
+        requestId,
       ),
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -151,6 +151,7 @@ export async function PATCH(
       p_corrected_reference_text: correctedReferenceText ?? null,
       p_corrected_report_flag: correctedReportFlag ?? null,
       p_request_id: requestId,
+      p_base_updated_at: measurement.updated_at ?? null,
     });
 
     if (rpcError) {

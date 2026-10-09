@@ -87,7 +87,7 @@ function firebaseCode(err: unknown): string | null {
 class AuthHttpError extends Error {
   constructor(
     readonly status: number,
-    readonly routeCode?: string
+    readonly routeCode?: string,
   ) {
     super(`auth route failed with status ${status}`);
     this.name = "AuthHttpError";
@@ -127,7 +127,9 @@ async function exchangeSession(idToken: string): Promise<void> {
     body: JSON.stringify({ idToken }),
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { code?: string } | null;
+    const body = (await res.json().catch(() => null)) as {
+      code?: string;
+    } | null;
     throw new AuthHttpError(res.status, body?.code);
   }
 }
@@ -177,16 +179,53 @@ async function signInEmail({
   email,
   password,
 }: SignInEmailParams): Promise<AuthResult> {
+  // Database-backed auth (no client identity SDK): the SERVER verifies the
+  // credentials and sets the HttpOnly session cookie itself.
+  if (!isFirebaseClientConfigured()) {
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+    } catch (err) {
+      throw err; // network — the form shows its connection message
+    }
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        code?: string;
+      } | null;
+      const status =
+        res.status === 401
+          ? 401
+          : res.status === 429
+            ? 429
+            : res.status >= 500
+              ? 500
+              : res.status;
+      return { data: null, error: { status, code: body?.code } };
+    }
+    return { data: { ok: true }, error: null };
+  }
+
   let idToken: string;
   try {
-    const cred = await signInWithEmailAndPassword(getClientAuth(), email, password);
+    const cred = await signInWithEmailAndPassword(
+      getClientAuth(),
+      email,
+      password,
+    );
     idToken = await cred.user.getIdToken();
   } catch (err) {
     const code = firebaseCode(err);
     // Network failures (and anything unrecognized) THROW — the form's catch
     // shows "we couldn't reach Healthfolio" and never blames the password.
     if (!code || code === "auth/network-request-failed") throw err;
-    return { data: null, error: { status: SIGN_IN_STATUS_BY_CODE[code] ?? 500, code } };
+    return {
+      data: null,
+      error: { status: SIGN_IN_STATUS_BY_CODE[code] ?? 500, code },
+    };
   }
 
   try {
@@ -211,6 +250,31 @@ async function signUpEmail({
   region,
   consent,
 }: SignUpEmailParams): Promise<AuthResult> {
+  // Database-backed auth: the register route creates the account AND issues
+  // the session cookie in one step, so there is no token exchange.
+  if (!isFirebaseClientConfigured()) {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+        name,
+        dob,
+        gender,
+        region,
+        consent,
+      }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        code?: string;
+      } | null;
+      return { data: null, error: { status: res.status, code: body?.code } };
+    }
+    return { data: { ok: true }, error: null };
+  }
+
   // Server-first: the register route validates the same RegisterSchema,
   // creates the auth user with a UUID uid, provisions users/{uid} + the
   // P1-TEMP Postgres bridge, and answers with a custom token. A fetch
@@ -218,16 +282,31 @@ async function signUpEmail({
   const registerRes = await fetch("/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, name, dob, gender, region, consent }),
+    body: JSON.stringify({
+      email,
+      password,
+      name,
+      dob,
+      gender,
+      region,
+      consent,
+    }),
   });
   if (!registerRes.ok) {
-    const body = (await registerRes.json().catch(() => null)) as { code?: string } | null;
-    return { data: null, error: { status: registerRes.status, code: body?.code } };
+    const body = (await registerRes.json().catch(() => null)) as {
+      code?: string;
+    } | null;
+    return {
+      data: null,
+      error: { status: registerRes.status, code: body?.code },
+    };
   }
 
   let customToken: unknown;
   try {
-    const body = (await registerRes.json()) as { data?: { customToken?: unknown } } | null;
+    const body = (await registerRes.json()) as {
+      data?: { customToken?: unknown };
+    } | null;
     customToken = body?.data?.customToken;
   } catch {
     customToken = null;
@@ -321,12 +400,37 @@ export function useSession(): UseSessionResult {
   // Lazy initializer: with no Firebase web config there is nothing to load,
   // so start resolved (the loading flag only ever flips inside auth
   // callbacks — never synchronously in the effect body).
-  const [isPending, setIsPending] = useState(() => !isFirebaseClientConfigured());
+  const [isPending, setIsPending] = useState(
+    () => !isFirebaseClientConfigured(),
+  );
 
   useEffect(() => {
     if (!isFirebaseClientConfigured()) {
-      // No web config: honest signed-out state (auth pages still render).
-      return;
+      // No client identity SDK (database auth / preview): the server is the
+      // only authority, so ask it. 401 simply means signed out.
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await fetch("/api/auth/me", { cache: "no-store" });
+          if (cancelled) return;
+          if (!res.ok) {
+            setData(null);
+            return;
+          }
+          const body = (await res.json()) as {
+            user?: FirebaseSessionUser;
+          } | null;
+          if (cancelled) return;
+          setData(body?.user ? { user: body.user } : null);
+        } catch {
+          if (!cancelled) setData(null);
+        } finally {
+          if (!cancelled) setIsPending(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
 
     let cancelled = false;
@@ -353,7 +457,7 @@ export function useSession(): UseSessionResult {
                   activeRoles: roles,
                 },
               }
-            : prev
+            : prev,
         );
       } catch {
         // Offline or rules denial — roles stay undefined; VoiceAssistant

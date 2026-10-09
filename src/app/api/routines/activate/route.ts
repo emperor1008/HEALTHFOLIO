@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
+import { getUser } from "@/lib/auth-helpers";
 
 interface ActivatePlanRequest {
   planId: string;
@@ -21,18 +22,22 @@ interface ActivatePlanRequest {
 export async function POST(request: NextRequest) {
   const supabase = createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 },
+    );
   }
 
   let body: ActivatePlanRequest;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   const { planId, confirmedTimeSlots, startDate, timezone } = body;
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (!startDate || !timezone) {
     return NextResponse.json(
       { error: "Start date and timezone are required for activation" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -59,14 +64,14 @@ export async function POST(request: NextRequest) {
   if (planError || !plan) {
     return NextResponse.json(
       { error: "Plan not found or access denied" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
   if (plan.status !== "proposed" && plan.status !== "review_required") {
     return NextResponse.json(
       { error: "This plan cannot be activated in its current status" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -74,7 +79,7 @@ export async function POST(request: NextRequest) {
   if (!confirmedTimeSlots || confirmedTimeSlots.length === 0) {
     return NextResponse.json(
       { error: "At least one confirmed time slot is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -84,7 +89,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: "Invalid timezone. Use an IANA timezone such as Asia/Kolkata" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -93,7 +98,7 @@ export async function POST(request: NextRequest) {
   if (isNaN(startDateTime.getTime())) {
     return NextResponse.json(
       { error: "Invalid start date format" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -113,7 +118,7 @@ export async function POST(request: NextRequest) {
   if (updateError) {
     return NextResponse.json(
       { error: "Failed to activate plan" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -143,6 +148,7 @@ export async function POST(request: NextRequest) {
       startDate,
       activatedAt: new Date().toISOString(),
     },
-    message: "Medication routine activated. Reminders will appear in-app when due.",
+    message:
+      "Medication routine activated. Reminders will appear in-app when due.",
   });
 }

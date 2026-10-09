@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
+import { getUser } from "@/lib/auth-helpers";
 
 const verifySchema = z.object({
   sessionId: z.string().min(1),
@@ -15,15 +16,12 @@ const verifySchema = z.object({
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
-  if (authError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: { code: "AUTH_REQUIRED", message: "Authentication required" } },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -32,8 +30,13 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Invalid verification parameters" } },
-      { status: 400 }
+      {
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid verification parameters",
+        },
+      },
+      { status: 400 },
     );
   }
 
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
   if (!session) {
     return NextResponse.json(
       { error: { code: "UPLOAD_SESSION_FAILED", message: "Invalid session" } },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest) {
   if (!page) {
     return NextResponse.json(
       { error: { code: "DOCUMENT_NOT_FOUND", message: "Page not found" } },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -78,8 +81,13 @@ export async function POST(request: NextRequest) {
 
   if (fileError) {
     return NextResponse.json(
-      { error: { code: "UPLOAD_VERIFICATION_FAILED", message: "Could not verify upload" } },
-      { status: 500 }
+      {
+        error: {
+          code: "UPLOAD_VERIFICATION_FAILED",
+          message: "Could not verify upload",
+        },
+      },
+      { status: 500 },
     );
   }
 

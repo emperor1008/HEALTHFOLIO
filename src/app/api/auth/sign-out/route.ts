@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import {
-  getAdminAuth,
-  isFirebaseAdminConfigured,
-} from "@/lib/firebase/admin";
+import { getAdminAuth, isFirebaseAdminConfigured } from "@/lib/firebase/admin";
 import {
   clearSessionCookie,
   readSessionCookie,
 } from "@/lib/firebase/session-cookie";
 import { invalidateSessionProfileCache } from "@/lib/auth-session";
+import { revokeSession } from "@/lib/auth/db-auth";
 import { hit } from "@/lib/api/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +25,17 @@ export async function POST(req: Request) {
   if (!rl.allowed) {
     return NextResponse.json(
       { code: "TOO_MANY_REQUESTS" },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
     );
+  }
+
+  // Database-backed session: revoke the row first so the opaque token can
+  // never authenticate again even if the cookie value leaks later.
+  try {
+    const dbToken = readSessionCookie(req.headers.get("cookie"));
+    if (dbToken) await revokeSession(dbToken);
+  } catch {
+    // Best-effort: clearing the cookie below is still the right outcome.
   }
 
   if (isFirebaseAdminConfigured()) {
