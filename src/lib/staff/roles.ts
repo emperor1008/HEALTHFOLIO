@@ -62,6 +62,13 @@ export interface StaffIdentity {
 /**
  * Highest active platform role for a user, or null when the user holds no
  * active role. Suspended/revoked rows never resolve.
+ *
+ * Auth-era bridge: platform_admin is now provisioned in BOTH registries —
+ * `app_roles` (migration 027, the Better Auth-era store) and the legacy
+ * `user_roles` (migration 026) — by the bootstrap script / admin console, so
+ * this resolver accepts an active platform_admin row in either. That keeps
+ * legacy Part 3–5 staff surfaces working while the app_roles registry is the
+ * canonical source for the new role model.
  */
 export async function getActivePlatformRole(
   userId: string
@@ -73,14 +80,45 @@ export async function getActivePlatformRole(
       .select("role, status")
       .eq("user_id", userId)
       .eq("status", "active");
-    if (error || !data || data.length === 0) return null;
+    if (error || !data || data.length === 0) {
+      // Fall through to the auth-era registry before concluding "no role".
+      const legacy = await resolveLegacyAppRole(userId);
+      return legacy ?? null;
+    }
     const roles = new Set(data.map((r: { role: string }) => r.role as PlatformRole));
     if (roles.has("platform_admin")) return "platform_admin";
     if (roles.has("pharmacy_manager")) return "pharmacy_manager";
     if (roles.has("pharmacy_operator")) return "pharmacy_operator";
     if (roles.has("facility_coordinator")) return "facility_coordinator";
     if (roles.has("clinician")) return "clinician";
+    // Legacy registry active rows exist but hold no staff role — check the
+    // auth-era registry for platform_admin before defaulting to patient.
+    const bridged = await resolveLegacyAppRole(userId);
+    if (bridged === "platform_admin") return "platform_admin";
     return "patient";
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve platform_admin from the migration-027 app_roles registry. */
+async function resolveLegacyAppRole(
+  userId: string
+): Promise<PlatformRole | null> {
+  try {
+    const admin = await createAdminClient();
+    const { data, error } = await admin
+      .from("app_roles")
+      .select("role, status")
+      .eq("user_id", userId)
+      .eq("status", "active");
+    if (error || !data) return null;
+    const roles = new Set(data.map((r: { role: string }) => r.role as string));
+    if (roles.has("platform_admin")) return "platform_admin";
+    if (roles.has("facility_admin")) return "facility_coordinator";
+    if (roles.has("doctor")) return "clinician";
+    if (roles.has("patient") || roles.has("doctor_pending")) return "patient";
+    return null;
   } catch {
     return null;
   }

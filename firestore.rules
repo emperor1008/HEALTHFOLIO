@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// Firebase Migration — P1 starter rules.
+//
+// DENY BY DEFAULT: only the identity collection (`users`) has any allow
+// rule, and only for its owner. Everything else in the project is denied.
+// The full rules framework (cross-user workflows, role matrix, medical
+// collections) is built in P2 when data moves to Firestore.
+//
+// Server code (Admin SDK) bypasses these rules — legitimate role changes
+// and provisioning writes happen there, which is why `roles` is
+// owner-immutable here: a client can never self-promote.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      // Owner read.
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // Owner create — signup default only: exactly the patient role.
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.roles == ["patient"];
+
+      // Owner update of non-identity fields; roles and createdAt are
+      // owner-immutable (changes go through the Admin SDK).
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['roles', 'createdAt']);
+
+      // No client-side delete: account deletion runs server-side.
+    }
+
+    // Everything else — deny by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

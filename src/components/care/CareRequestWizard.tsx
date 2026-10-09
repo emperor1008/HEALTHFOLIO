@@ -39,6 +39,7 @@ import {
   type FollowUpId,
 } from "@/lib/triage/red-flags";
 import { PacketSchema, newPacketSkeleton, type CareRequestPacket } from "@/lib/triage/packet";
+import { CONCEPT_LABELS } from "@/lib/triage/concept-labels";
 
 const MAX_CHARS = 500;
 
@@ -88,20 +89,8 @@ const EMPTY_ANSWERS: WizardAnswers = {
   ack: false,
 };
 
-/** Plain-language labels for each broad concept per language. */
-const CONCEPT_LABELS: Record<SymptomConcept, Record<"en" | "hi" | "or", string>> = {
-  chest_discomfort: { en: "chest discomfort", hi: "सीने में दबाव/दर्द", or: "ଛାତିରେ ଅସ୍ୱାଭାବିକତା" },
-  difficulty_breathing: { en: "difficulty breathing", hi: "सांस लेने में दिक्कत", or: "ନିଶ୍ୱାସ ନେବାରେ କଷ୍ଟ" },
-  fever: { en: "fever", hi: "बुखार", or: "ଜ୍ୱର" },
-  fainting: { en: "fainting or collapse", hi: "बेहोशी या गिर जाना", or: "ଅଜ୍ଞାନ ହେବା" },
-  severe_bleeding: { en: "severe bleeding", hi: "बहुत खून बहना", or: "ପ୍ରଚଣ୍ଡ ରକ୍ତସ୍ରାବ" },
-  weakness_one_side: { en: "weakness on one side of the body", hi: "शरीर के एक तरफ कमज़ोरी", or: "ଶରୀରର ଗୋଟିଏ ପାଖରେ ଦୁର୍ବଳତା" },
-  severe_headache: { en: "severe headache", hi: "तेज़ सिरदर्द", or: "ପ୍ରଚଣ୍ଡ ମୁଣ୍ଡ ବୁରୁଡ଼" },
-  vomiting: { en: "vomiting", hi: "उल्टी", or: "ବାନ୍ତି" },
-  pregnancy_concern: { en: "pregnancy-related concern", hi: "गर्भावस्था से जुड़ी समस्या", or: "ଗର୍ଭାବସ୍ଥା ସମ୍ବନ୍ଧୀୟ ସମସ୍ୟା" },
-  injury: { en: "injury", hi: "चोट", or: "ଆଘାତ" },
-  abdominal_pain: { en: "stomach pain", hi: "पेट दर्द", or: "ପେଟ ଯନ୍ତ୍ରଣା" },
-};
+// Concept labels are shared with the Phase 2 symptom checker:
+// src/lib/triage/concept-labels.ts (identical wording in every surface).
 
 const CATEGORY_ICON: Record<SymptomCategory, string> = {
   breathing_or_chest: "🫁",
@@ -756,17 +745,20 @@ function RecordPicker({
   selected: string[];
   onChange: (ids: string[]) => void;
 }) {
-  const [docs, setDocs] = useState<Array<{ id: string; file_name: string; created_at: string }>>([]);
+  const [docs, setDocs] = useState<Array<{ id: string; original_name: string; created_at: string }>>([]);
   const [loaded, setLoaded] = useState(false);
   const tt = (key: Parameters<typeof t2>[1], vars?: Record<string, string | number>) =>
     t2(language, key, vars);
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/documents")
+    // `GET /api/documents` does not exist (that route is upload-only). The
+    // canonical own-documents listing is the authenticated user-data gateway,
+    // which returns `rows` and the real `original_name` column.
+    fetch("/api/user-data/documents?select=id,original_name,created_at&order=created_at.desc&limit=100")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { documents?: Array<{ id: string; file_name: string; created_at: string }> } | null) => {
-        if (alive && data?.documents) setDocs(data.documents);
+      .then((data: { rows?: Array<{ id: string; original_name: string; created_at: string }> } | null) => {
+        if (alive && data?.rows) setDocs(data.rows);
         if (alive) setLoaded(true);
       })
       .catch(() => {
@@ -800,7 +792,7 @@ function RecordPicker({
               />
               <span className="text-text-primary">
                 {tt("attachFileNameDate", {
-                  name: d.file_name,
+                  name: d.original_name,
                   date: new Date(d.created_at).toLocaleDateString(),
                 })}
               </span>

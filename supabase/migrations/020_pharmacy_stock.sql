@@ -107,6 +107,24 @@ CREATE POLICY "Pharmacy staff can view own pharmacy stock"
     )
   );
 
+CREATE POLICY "Pharmacy staff can view own stock events"
+  ON pharmacy_stock_events FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM pharmacy_memberships pm
+      WHERE pm.pharmacy_id = pharmacy_stock_events.pharmacy_id
+        AND pm.user_id = auth.uid()
+    )
+  );
+
+-- Patients never read stock events directly: they go through the canonical
+-- patient stock view, which is server-side in getPatientStockView(). Keeping
+-- the plain policy narrow is the defence-in-depth the column-level note
+-- promises, and it prevents an unauthenticated-by-role patient row from
+-- reaching a pharmacy's internal_note / quantity_hint fields.
+-- The patient-facing projection (display fields, freshness) is enforced in
+-- src/lib/pharmacy/service.ts, not in the database, so that projection is the
+-- policy the UI follows.
 CREATE POLICY "Patients can view stock events for verified pharmacies"
   ON pharmacy_stock_events FOR SELECT
   USING (
@@ -116,6 +134,8 @@ CREATE POLICY "Patients can view stock events for verified pharmacies"
         AND p.verification_state = 'verified'
     )
   );
+
+-- No client INSERT/UPDATE: writes go through the server route only.
 
 -- No client INSERT/UPDATE: writes go through the server route only.
 

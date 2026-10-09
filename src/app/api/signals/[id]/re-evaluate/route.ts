@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { getUser } from "@/lib/auth-helpers";
 import { runSignalMonitorForMeasurement } from "@/lib/signals/service";
 import { z } from "zod";
@@ -33,7 +33,7 @@ export async function POST(
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createClient();
     const user = await getUser();
     if (!user) {
       return NextResponse.json(

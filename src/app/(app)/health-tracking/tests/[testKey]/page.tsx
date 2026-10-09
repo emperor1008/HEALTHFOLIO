@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -382,18 +381,15 @@ export default function TestDetailPage({ params }: { params: { testKey: string }
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
+      const response = await fetch(
+        `/api/health-tracking/tests/${encodeURIComponent(testKey)}`,
+        { cache: "no-store" }
+      );
+      if (response.status === 401) {
         setError("AUTH_REQUIRED");
         setLoading(false);
         return;
       }
-
-      const response = await fetch(
-        `/api/health-tracking/tests/${encodeURIComponent(testKey)}`
-      );
       const json = await response.json();
 
       if (json.error) {

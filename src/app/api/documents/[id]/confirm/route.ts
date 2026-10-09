@@ -1,25 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
+import {
+  generateRequestId,
+  createError,
+  formatErrorResponse,
+} from "@/lib/errors";
+import { getUser } from "@/lib/auth-helpers";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const requestId = generateRequestId();
 
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const supabase = createClient();
+    const user = await getUser();
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
-        formatErrorResponse(createError("AUTH_REQUIRED", "Authentication required"), requestId),
-        { status: 401 }
+        formatErrorResponse(
+          createError("AUTH_REQUIRED", "Authentication required"),
+          requestId,
+        ),
+        { status: 401 },
       );
     }
 
@@ -36,8 +41,11 @@ export async function POST(
 
     if (docError || !doc) {
       return NextResponse.json(
-        formatErrorResponse(createError("NOT_FOUND", "Document not found."), requestId),
-        { status: 404 }
+        formatErrorResponse(
+          createError("NOT_FOUND", "Document not found."),
+          requestId,
+        ),
+        { status: 404 },
       );
     }
 
@@ -82,10 +90,7 @@ export async function POST(
     }
 
     // Update document with hash
-    await admin
-      .from("documents")
-      .update({ sha256 })
-      .eq("id", documentId);
+    await admin.from("documents").update({ sha256 }).eq("id", documentId);
 
     return NextResponse.json({
       data: { documentId, status: "confirmed" },
@@ -94,8 +99,11 @@ export async function POST(
     });
   } catch {
     return NextResponse.json(
-      formatErrorResponse(createError("INTERNAL_ERROR", "Something went wrong"), requestId),
-      { status: 500 }
+      formatErrorResponse(
+        createError("INTERNAL_ERROR", "Something went wrong"),
+        requestId,
+      ),
+      { status: 500 },
     );
   }
 }

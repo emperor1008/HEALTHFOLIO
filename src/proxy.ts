@@ -1,113 +1,103 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { SESSION_COOKIE } from "@/lib/firebase/session-cookie";
+import { evaluatePreviewGate } from "@/lib/preview/gate";
 
 /**
- * Route proxy (Next.js 16 convention; formerly middleware.ts) that protects
- * application routes using Supabase anonymous auth.
+ * Route proxy (Next.js 16 convention) guarding the Firebase session cookie.
  *
- * Flow:
- * - "/" redirects to bootstrap which creates an anonymous session
- * - Bootstrap is public (no session required)
- * - Protected pages require a valid Supabase session
- * - Missing session → redirect to bootstrap (not a login page)
+ * - Checks `__session` PRESENCE only (fast, no verification here —
+ *   firebase-admin cannot run in the middleware/edge runtime). Full
+ *   cryptographic validation, role checks, ownership, and consent happen in
+ *   every server page/route — this proxy is only the outer gate.
+ * - Signed-out users hitting a protected route go to /sign-in (no anonymous
+ *   bootstrap anymore).
+ * - Signed-in users never see /sign-in or /register again.
+ * - The cookie presence check is deliberately optimistic: a stale cookie
+ *   simply renders an app shell whose data calls 401 and surfaces the calm
+ *   signed-out state; it can never grant access.
+ * - Public static assets (service worker, PWA manifest, icons) are excluded in
+ *   the matcher below. Gating them broke the offline layer in production: the
+ *   browser refuses a service worker script behind a redirect, so registration
+ *   silently failed and the whole offline cache never installed.
  */
 
+// Exported for the regression test that guards the PWA asset routes.
+export const PUBLIC_ROUTES = [
+  "/",
+  "/sign-in",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/doctor/apply",
+  "/access-denied",
+  // The offline fallback must render for signed-out visitors too: the
+  // service worker precaches it, and a redirect would cache sign-in HTML
+  // as the offline page.
+  "/offline",
+];
+
+const AUTH_PAGES = [
+  "/sign-in",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+];
+
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
-    request: { headers: request.headers },
+  const { pathname } = request.nextUrl;
+
+  // API routes answer for themselves: every route handler verifies the
+  // Firebase session cookie server-side and returns JSON 401/403/503 (never a
+  // redirect). Redirecting /api/* to an HTML sign-in page would break the
+  // offline sync engine and every programmatic client — and the new session
+  // exchange endpoint must be reachable by signed-out users.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
+  // Preview mode: the server-side gate (HF_DEMO_MODE + environment + host
+  // verification) decides whether pages may be opened without a session
+  // cookie. It reads server configuration only — a browser-set flag can never
+  // open this door. When the gate is closed, nothing below changes.
+  const preview = evaluatePreviewGate({
+    demoMode: process.env.HF_DEMO_MODE,
+    deploymentEnv: process.env.HF_DEPLOYMENT_ENV,
+    previewHosts: process.env.HF_PREVIEW_HOSTS,
+    nodeEnv: process.env.NODE_ENV,
+    host: request.headers.get("host"),
   });
-
-  // If Supabase is not configured, allow all requests through
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return response;
+  if (preview.enabled) {
+    return NextResponse.next();
   }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
-          response.cookies.set({ name, value: "", ...options });
-        },
-      },
+  const cookieValue = request.cookies.get(SESSION_COOKIE)?.value;
+  const hasSession = Boolean(cookieValue);
+
+  const isAuthPage = AUTH_PAGES.some((p) => pathname === p);
+  const isPublic = PUBLIC_ROUTES.some((p) => pathname === p) || isAuthPage;
+
+  if (isPublic) {
+    // Signed-in users skip the auth pages.
+    if (hasSession && isAuthPage) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  // Public routes that don't need a session
-  const publicRoutes = ["/", "/auth/bootstrap", "/auth/callback"];
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith("/auth/")
-  );
-
-  // Root "/" always goes to bootstrap to check/create session
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL("/auth/bootstrap", request.url));
+    return NextResponse.next();
   }
 
-  // Protected routes require a valid session
-  const protectedPrefixes = [
-    "/dashboard",
-    "/documents",
-    "/timeline",
-    "/preparation",
-    "/prepare",
-    "/runs",
-    "/settings",
-    "/consent",
-    "/review",
-    "/ask",
-    "/records",
-    "/health-tracking",
-    "/medicines",
-    "/routine",
-    // Part 1–5 surfaces (audit fix: these were missing, letting unauthenticated
-    // visitors render app shells that then failed per-request with 401s).
-    "/care-requests",
-    "/consultations",
-    "/pharmacy",
-    "/staff",
-    "/reliability",
-  ];
-  const isProtectedRoute = protectedPrefixes.some((prefix) =>
-    pathname.startsWith(prefix)
-  );
-
-  // Unauthenticated user on protected route → bootstrap (creates anonymous session)
-  if (isProtectedRoute && !user) {
-    const redirectUrl = new URL("/auth/bootstrap", request.url);
+  // Every other route requires a session cookie.
+  if (!hasSession) {
+    const redirectUrl = new URL("/sign-in", request.url);
     redirectUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Never gate static public assets. `/sw.js` in particular MUST be served
+    // directly: a redirect makes service-worker registration fail outright.
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|branding/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|webmanifest)$).*)",
   ],
 };

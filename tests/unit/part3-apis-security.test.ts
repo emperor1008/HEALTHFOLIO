@@ -116,7 +116,7 @@ describe("platform-admin staff management", () => {
   it("rejects an unauthenticated caller without leaking details", async () => {
     getUserMock.mockResolvedValue(null);
     const { GET } = await import("@/app/api/staff/admin/roles/route");
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/staff/admin/roles"));
     expect(res.status).toBe(401);
   });
 

@@ -5,8 +5,8 @@ let mockMaybeSingleFn: ReturnType<typeof vi.fn>;
 let mockSingleFn: ReturnType<typeof vi.fn>;
 let mockInsertFn: ReturnType<typeof vi.fn>;
 
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: () => ({
+vi.mock("@/lib/supabase/user-context", () => ({
+  getServerSupabase: () => ({
     from: (table: string) => {
       const chain = {
         select: (..._args: unknown[]) => chain,

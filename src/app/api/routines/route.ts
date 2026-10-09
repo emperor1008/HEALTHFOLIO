@@ -4,21 +4,19 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
+import { getUser } from "@/lib/auth-helpers";
 
 export async function GET(_request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const supabase = createClient();
+  const user = await getUser();
 
-  if (authError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: { code: "AUTH_REQUIRED", message: "Authentication required" } },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -30,7 +28,9 @@ export async function GET(_request: NextRequest) {
   // Get active plans with upcoming occurrences
   const { data: plans } = await admin
     .from("medication_plans")
-    .select("*, prescription_items!inner(medicine_name, dose_text, instruction_text)")
+    .select(
+      "*, prescription_items!inner(medicine_name, dose_text, instruction_text)",
+    )
     .eq("user_id", user.id)
     .in("status", ["active", "paused", "review_required"])
     .order("created_at", { ascending: false });
@@ -46,7 +46,9 @@ export async function GET(_request: NextRequest) {
     .order("scheduled_for", { ascending: true });
 
   // Get plans needing review
-  const reviewPlans = (plans || []).filter((p) => p.status === "review_required");
+  const reviewPlans = (plans || []).filter(
+    (p) => p.status === "review_required",
+  );
   const activePlans = (plans || []).filter((p) => p.status === "active");
   const pausedPlans = (plans || []).filter((p) => p.status === "paused");
 
@@ -66,29 +68,36 @@ const createPlanSchema = z.object({
   prescriptionItemId: z.string().uuid(),
   displayInstruction: z.string().min(1),
   planType: z.enum([
-    "fixed_times", "times_per_day", "interval", "specific_weekdays",
-    "date_range", "course_duration", "tapering", "as_needed", "one_time", "unclear",
+    "fixed_times",
+    "times_per_day",
+    "interval",
+    "specific_weekdays",
+    "date_range",
+    "course_duration",
+    "tapering",
+    "as_needed",
+    "one_time",
+    "unclear",
   ]),
   timezone: z.string(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  timeSlots: z.array(z.object({
-    localTime: z.string(),
-    sourceType: z.enum(["prescription", "user_selected", "system_suggested"]),
-  })),
+  timeSlots: z.array(
+    z.object({
+      localTime: z.string(),
+      sourceType: z.enum(["prescription", "user_selected", "system_suggested"]),
+    }),
+  ),
 });
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const supabase = createClient();
+  const user = await getUser();
 
-  if (authError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: { code: "AUTH_REQUIRED", message: "Authentication required" } },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -97,13 +106,23 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Invalid plan parameters" } },
-      { status: 400 }
+      {
+        error: { code: "INVALID_REQUEST", message: "Invalid plan parameters" },
+      },
+      { status: 400 },
     );
   }
 
   const admin = await createAdminClient();
-  const { prescriptionItemId, displayInstruction, planType, timezone, startDate, endDate, timeSlots } = parsed.data;
+  const {
+    prescriptionItemId,
+    displayInstruction,
+    planType,
+    timezone,
+    startDate,
+    endDate,
+    timeSlots,
+  } = parsed.data;
 
   // Verify prescription item ownership
   const { data: item } = await admin
@@ -115,8 +134,13 @@ export async function POST(request: NextRequest) {
 
   if (!item) {
     return NextResponse.json(
-      { error: { code: "PRESCRIPTION_NOT_FOUND", message: "Prescription item not found" } },
-      { status: 404 }
+      {
+        error: {
+          code: "PRESCRIPTION_NOT_FOUND",
+          message: "Prescription item not found",
+        },
+      },
+      { status: 404 },
     );
   }
 
@@ -131,7 +155,7 @@ export async function POST(request: NextRequest) {
   if (!portfolio) {
     return NextResponse.json(
       { error: { code: "PORTFOLIO_REQUIRED", message: "Portfolio not found" } },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -156,8 +180,13 @@ export async function POST(request: NextRequest) {
 
   if (planError) {
     return NextResponse.json(
-      { error: { code: "DATABASE_WRITE_FAILED", message: "Could not create plan" } },
-      { status: 500 }
+      {
+        error: {
+          code: "DATABASE_WRITE_FAILED",
+          message: "Could not create plan",
+        },
+      },
+      { status: 500 },
     );
   }
 

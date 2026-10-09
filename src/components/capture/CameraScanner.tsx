@@ -15,7 +15,13 @@ import {
 } from "@/lib/capture/camera";
 import { analyzeImageQuality } from "@/lib/capture/image-quality";
 import { computeFileHash, createPreviewUrl } from "@/lib/capture/image-transform";
-import type { CapturedPage, CameraPermissionInfo } from "@/lib/capture/types";
+import type {
+  CapturedPage,
+  CameraPermissionInfo,
+  CameraPermissionState,
+} from "@/lib/capture/types";
+import { t3 } from "@/lib/i18n/part3";
+import { useLanguage } from "@/lib/i18n/language-context";
 
 interface CameraScannerProps {
   onCapture: (pages: CapturedPage[]) => void;
@@ -36,8 +42,10 @@ export function CameraScanner({
   const [cameraCount, setCameraCount] = useState(0);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const { language } = useLanguage();
 
   // Initialize camera
   useEffect(() => {
@@ -74,6 +82,7 @@ export function CameraScanner({
 
         const count = await getCameraCount();
         if (!cancelled) {
+          setTorchSupported(isTorchSupported(capabilities));
           setCameraCount(count);
           setFacingMode(getCurrentFacingMode(videoTrack));
           setPermission({ state: "granted", message: "", fallbackAvailable: true });
@@ -169,14 +178,23 @@ export function CameraScanner({
     }
   }, [torchOn]);
 
-  // Check torch capability
-  const canTorch = useCallback(() => {
-    if (!streamRef.current) return false;
-    const videoTrack = streamRef.current.getVideoTracks()[0];
-    if (!videoTrack) return false;
-    const capabilities = videoTrack.getCapabilities?.() || {};
-    return isTorchSupported(capabilities);
-  }, []);
+  // Localized permission explanation (camera.ts messages are English-only)
+  function cameraMessage(state: CameraPermissionState, fallback: string): string {
+    switch (state) {
+      case "denied":
+        return t3(language, "camDenied");
+      case "device_not_found":
+        return t3(language, "camDeviceNotFound");
+      case "device_busy":
+        return t3(language, "camDeviceBusy");
+      case "insecure_context":
+        return t3(language, "camInsecure");
+      case "unavailable":
+        return t3(language, "camUnavailable");
+      default:
+        return fallback || t3(language, "camGeneric");
+    }
+  }
 
   // Permission denied state
   if (permission && permission.state !== "granted") {
@@ -185,17 +203,17 @@ export function CameraScanner({
         <div className="max-w-sm text-center">
           <div className="text-4xl">📷</div>
           <h2 className="mt-4 text-lg font-semibold text-text-primary">
-            Camera unavailable
+            {t3(language, "errCameraUnavailable")}
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
-            {permission.message}
+            {cameraMessage(permission.state, permission.message)}
           </p>
           <div className="mt-6 flex flex-col gap-3">
             <button
               onClick={onCancel}
               className="rounded-card border border-border py-2.5 text-sm font-medium text-text-secondary hover:bg-canvas"
             >
-              Choose another option
+              {t3(language, "chooseAnotherOption")}
             </button>
           </div>
         </div>
@@ -210,12 +228,18 @@ export function CameraScanner({
         <button
           onClick={onCancel}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
-          aria-label="Close camera"
+          aria-label={t3(language, "closeCamera")}
         >
           ✕
         </button>
         <p className="text-sm font-medium">
-          {onPageCount > 0 ? `${onPageCount} page${onPageCount !== 1 ? "s" : ""} captured` : "Position document in frame"}
+          {onPageCount > 0
+            ? t3(
+                language,
+                onPageCount === 1 ? "pageCapturedOne" : "pageCapturedMany",
+                { count: onPageCount },
+              )
+            : t3(language, "positionDocument")}
         </p>
         <div className="w-10" /> {/* Spacer */}
       </div>
@@ -239,32 +263,31 @@ export function CameraScanner({
         </div>
 
         <p className="absolute bottom-4 left-0 right-0 text-center text-sm text-white/80">
-          Fit the full page inside the frame
+          {t3(language, "fitPageInFrame")}
         </p>
       </div>
 
       {/* Camera controls */}
       <div className="flex items-center justify-around p-6 bg-black/80">
         {/* Torch (if supported) */}
-        {canTorch() && (
+        {torchSupported && (
           <button
             onClick={handleTorchToggle}
             className={`flex h-12 w-12 items-center justify-center rounded-full ${
               torchOn ? "bg-white text-black" : "bg-white/10 text-white"
             }`}
-            aria-label={torchOn ? "Turn off flash" : "Turn on flash"}
+            aria-label={t3(language, torchOn ? "turnOffFlash" : "turnOnFlash")}
           >
             💡
           </button>
         )}
-        {!canTorch() && <div className="w-12" />}
+        {!torchSupported && <div className="w-12" />}
 
         {/* Capture button */}
         <button
           onClick={handleCapture}
           disabled={capturing || !isReady}
-          className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-white/20 transition-transform active:scale-95 disabled:opacity-50"
-          aria-label="Capture photo"
+          className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-white/20 transition-transform active:scale-95 disabled:opacity-50"            aria-label={t3(language, "capturePhoto")}
         >
           <div className="h-12 w-12 rounded-full bg-white" />
         </button>
@@ -274,7 +297,7 @@ export function CameraScanner({
           <button
             onClick={handleSwitchCamera}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white"
-            aria-label="Switch camera"
+            aria-label={t3(language, "switchCamera")}
           >
             🔄
           </button>

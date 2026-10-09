@@ -40,7 +40,7 @@ export default function MarketingLayout({
               Sign in
             </Link>
             <Link
-              href="/sign-up"
+              href="/register"
               className="inline-flex h-9 items-center rounded-input bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover transition-colors"
             >
               Create my Healthfolio

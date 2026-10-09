@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
+import { rows } from "@/lib/api/page-queries";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -37,18 +37,19 @@ export default function TimelinePage() {
 
   useEffect(() => {
     async function loadTimeline() {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: timelineEvents } = await supabase
-        .from("medical_events")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("event_date", { ascending: true });
-
-      setEvents(timelineEvents || []);
-      setLoading(false);
+      try {
+        const timelineEvents = await rows<TimelineEvent>("medical_events", {
+          select: "id,event_date,event_type,title,description,source_extraction_ids,verification_status,created_at",
+          order: "event_date.asc",
+          limit: 400,
+        });
+        setEvents(timelineEvents);
+      } catch {
+        // Session ended or network hiccup: show the calm empty state with a
+        // retry via page refresh.
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadTimeline();

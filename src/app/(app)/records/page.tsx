@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -110,58 +109,44 @@ export default function RecordsPage() {
     setLoading(true);
     setLoadFailed(false);
     try {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setLoadFailed(true);
-        setLoading(false);
-        return;
-      }
-
-      let query = supabase
-        .from("documents")
-        .select(
-          `
-          id, original_name, mime_type, size_bytes,
-          category, category_confidence, classification_status, processing_status,
-          document_date, title, doctor_name, facility_name, summary,
-          requires_review, created_at
-        `
-        )
-        .eq("user_id", user.id)
-        .is("invalidated_at", null);
-
-      if (categoryFilter !== "all") {
-        query = query.eq("category", categoryFilter);
-      }
+      // Server resolves the Better Auth session and forces user_id scope.
+      const params = new URLSearchParams({
+        select: "id,original_name,mime_type,size_bytes,category,category_confidence,classification_status,processing_status,document_date,title,doctor_name,facility_name,summary,requires_review,created_at",
+        limit: "100",
+        order: `${sortBy}.desc`,
+      });
+      params.append("eq", "invalidated_at=null");
+      if (categoryFilter !== "all") params.append("eq", `category=${categoryFilter}`);
       if (statusFilter !== "all") {
         if (statusFilter === "review") {
-          query = query.eq("requires_review", true);
+          params.append("eq", "requires_review=true");
         } else {
-          query = query.eq("processing_status", statusFilter);
+          params.append("eq", `processing_status=${statusFilter}`);
         }
       }
-
-      const { data: docs, error } = await query
-        .order(sortBy, { ascending: false })
-        .limit(100);
-
-      if (error) {
+      const res = await fetch(`/api/user-data/documents?${params.toString()}`, {
+        cache: "no-store",
+      });
+      if (res.status === 401) {
         setLoadFailed(true);
-      } else {
-        setDocuments(docs || []);
+        return;
       }
+      if (!res.ok) {
+        setLoadFailed(true);
+        return;
+      }
+      const data = (await res.json()) as { rows: DocumentRecord[] };
+      setDocuments(data.rows);
 
       // Get portfolio ID for AddRecordButton
-      const { data: portfolios } = await supabase
-        .from("portfolios")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1);
-      if (portfolios?.[0]) {
-        setPortfolioId(portfolios[0].id);
+      try {
+        const space = await fetch("/api/health-space", { cache: "no-store" });
+        if (space.ok) {
+          const spaceData = (await space.json()) as { portfolio?: { id: string } | null };
+          if (spaceData.portfolio) setPortfolioId(spaceData.portfolio.id);
+        }
+      } catch {
+        // portfolio id stays null; AddRecordButton shows its own state
       }
     } catch {
       setLoadFailed(true);

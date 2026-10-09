@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -121,18 +120,16 @@ export default function HealthTrackingPage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
+      // The server resolves the Better Auth session; this call simply works
+      // for the signed-in user and 401s otherwise.
+      const response = await fetch(`/api/health-tracking?timeFilter=${filter}`, {
+        cache: "no-store",
+      });
+      if (response.status === 401) {
         setError("AUTH_REQUIRED");
         setLoading(false);
         return;
       }
-
-      const response = await fetch(`/api/health-tracking?timeFilter=${filter}`);
       const json = await response.json();
 
       if (json.error) {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
+import { patchJSON } from "@/lib/api/browser-bridge";
+import { rows } from "@/lib/api/page-queries";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -30,18 +31,18 @@ export default function PreparationPage() {
 
   useEffect(() => {
     async function loadBriefs() {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("briefs")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      setBriefs(data || []);
-      setLoading(false);
+      try {
+        const data = await rows<Brief>("briefs", {
+          select: "id,content,status,version,created_at,appointment_id",
+          order: "created_at.desc",
+          limit: 50,
+        });
+        setBriefs(data);
+      } catch {
+        // Session ended or unavailable: show the truthful empty list.
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadBriefs();
@@ -52,18 +53,22 @@ export default function PreparationPage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      // Server resolves the session; portfolio id comes from the authenticated
+      // health-space endpoint (ownership enforced server-side).
+      const space = await fetch("/api/health-space", { cache: "no-store" });
+      if (!space.ok) return;
+      const spaceData = (await space.json()) as { portfolio?: { id: string } | null };
+      if (!spaceData.portfolio) {
+        setError("Create your health space first by uploading a record.");
+        setGenerating(false);
+        return;
+      }
 
       const response = await fetch("/api/briefs", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          portfolioId: (await supabase.from("portfolios").select("id").limit(1)).data?.[0]?.id,
+          portfolioId: spaceData.portfolio.id,
         }),
       });
 
@@ -95,11 +100,12 @@ export default function PreparationPage() {
   }
 
   async function handleApproveBrief(briefId: string) {
-    const supabase = await createClient();
-    await supabase
-      .from("briefs")
-      .update({ status: "approved" })
-      .eq("id", briefId);
+    try {
+      await patchJSON(`/api/user-data/briefs?id=${briefId}`, { status: "approved" });
+    } catch {
+      setError("Could not approve the brief. Please try again.");
+      return;
+    }
 
     setBriefs((prev) =>
       prev.map((b) => (b.id === briefId ? { ...b, status: "approved" } : b))

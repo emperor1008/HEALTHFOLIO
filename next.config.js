@@ -50,7 +50,7 @@ const nextConfig = {
         },
         {
           key: 'Content-Security-Policy',
-          value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co http://127.0.0.1:11434 http://localhost:11434 https://rxnav.nlm.nih.gov https://dailymed.cit.nih.gov https://api.fda.gov; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+          value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://securetoken.google.com https://identitytoolkit.googleapis.com http://127.0.0.1:11434 http://localhost:11434 https://rxnav.nlm.nih.gov https://dailymed.cit.nih.gov https://api.fda.gov; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
         },
       ],
     },

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
@@ -33,22 +32,11 @@ export default function ConsentPage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        setError("Your session has expired. Please sign in again.");
-        return;
-      }
-
+      // The Better Auth session cookie authorizes this call server-side; no
+      // browser Supabase session or bearer token is needed.
       const response = await fetch("/api/consent", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           consents: [
             { consentType: "terms", policyVersion: POLICY_VERSIONS.terms },

@@ -5,6 +5,9 @@
  * Shows ONLY real recorded metric events. When nothing has happened yet it
  * says "No data yet" truthfully. Definitions of every derived number are
  * shown on the page itself (transparency requirement).
+ *
+ * Access is enforced twice: by the server StaffGuard wrapper (layout-level)
+ * and by the API route authorizing every data read.
  */
 
 import { useEffect, useState } from "react";

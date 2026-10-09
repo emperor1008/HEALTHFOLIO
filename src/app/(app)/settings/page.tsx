@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -26,15 +25,20 @@ export default function SettingsPage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await supabase
-        .from("profiles")
-        .update({ display_name: displayName })
-        .eq("id", user.id);
-
+      // Server resolves the Better Auth session and scopes the update to it.
+      const res = await fetch("/api/profile/display-name", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: displayName }),
+      });
+      if (res.status === 401) {
+        setError("Your session has expired. Please sign in again.");
+        return;
+      }
+      if (!res.ok) {
+        setError("Could not update profile.");
+        return;
+      }
       setSuccess("Profile updated.");
     } catch {
       setError("Could not update profile.");

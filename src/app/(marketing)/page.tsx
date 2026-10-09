@@ -16,7 +16,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
-              href="/sign-up"
+              href="/register"
               className="inline-flex h-12 items-center rounded-input bg-primary px-6 text-base font-semibold text-white hover:bg-primary-hover transition-colors duration-150"
             >
               Create my Healthfolio
@@ -105,7 +105,7 @@ export default function LandingPage() {
             Create your free Healthfolio and prepare for your next appointment with clarity.
           </p>
           <Link
-            href="/sign-up"
+            href="/register"
             className="mt-8 inline-flex h-12 items-center rounded-input bg-white px-6 text-base font-semibold text-primary hover:bg-white/90 transition-colors duration-150"
           >
             Create my Healthfolio

@@ -58,6 +58,12 @@ function isNeverCache(url) {
   return (
     url.pathname.startsWith("/api/") ||
     url.hostname.includes("supabase") ||
+    // Firebase hosts (auth token exchange, RTDB signalling) — belt-and-braces
+    // alongside the same-origin check below; full cleanup lands in P5.
+    url.hostname.includes("firebaseio") ||
+    url.hostname.includes("firebasedatabase") ||
+    url.hostname.includes("googleapis") ||
+    url.hostname.includes("securetoken") ||
     url.pathname.startsWith("/documents") ||
     url.pathname.startsWith("/extract")
   );

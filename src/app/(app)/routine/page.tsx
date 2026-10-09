@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/browser";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -82,11 +81,8 @@ export default function RoutinePage() {
     setError(null);
 
     try {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError("AUTH_REQUIRED"); setLoading(false); return; }
-
-      const response = await fetch("/api/routines");
+      const response = await fetch("/api/routines", { cache: "no-store" });
+      if (response.status === 401) { setError("AUTH_REQUIRED"); setLoading(false); return; }
       const json = await response.json();
 
       if (json.error) {

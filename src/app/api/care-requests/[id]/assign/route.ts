@@ -64,19 +64,73 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
+  // ── Clinician eligibility (routing is only valid against CURRENT state) ──
+  // An assignment made against a clinician who is offline, or who already
+  // holds `max_active_requests` active assignments, is a stale assignment:
+  // nobody will act on it. Rejecting it here is what keeps the queue honest.
+  const { data: targetProfile } = await admin
+    .from("clinician_profiles")
+    .select("id, availability_state, max_active_requests")
+    .eq("id", parsed.data.clinician_profile_id)
+    .maybeSingle();
+  if (!targetProfile) {
+    return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
+  }
+  if (targetProfile.availability_state !== "available") {
+    return NextResponse.json(
+      { code: "CLINICIAN_OFFLINE", availability: targetProfile.availability_state },
+      { status: 409 }
+    );
+  }
+
+  const { data: activeForTarget } = await admin
+    .from("care_request_assignments")
+    .select("id, care_request_id")
+    .eq("clinician_id", parsed.data.clinician_profile_id)
+    .in("state", ["assigned", "accepted"]);
+  const activeCount = (activeForTarget ?? []).filter(
+    // The request being assigned twice is an idempotent replay, not capacity.
+    (row: { care_request_id: string }) => row.care_request_id !== requestId
+  ).length;
+  const capacity =
+    typeof targetProfile.max_active_requests === "number"
+      ? targetProfile.max_active_requests
+      : 5;
+  if (activeCount >= capacity) {
+    return NextResponse.json(
+      { code: "CLINICIAN_AT_CAPACITY", activeCount, capacity },
+      { status: 409 }
+    );
+  }
+
   // Care request must be submittable into review: server-side state check.
-  const transition = validateAppointmentTransition({
-    from: careRequest.status === "submitted" ? "submitted" : "awaiting_review",
-    to: "assigned",
-    actorRole: identity.role,
-  });
-  const currentStatus = careRequest.status === "draft" ? "awaiting_review" : careRequest.status;
+  //
+  // Documented lifecycle: draft → queued_offline → submitted → awaiting_review
+  // → assigned. `care_requests.status` is the coarse field (CHECK: draft |
+  // submitted | processing | completed) while the fine-grained lifecycle lives
+  // on care_appointments.state, so what matters here is that BOTH hops of the
+  // documented path are permitted for this actor:
+  //   - a request the patient has already sent (`submitted`) must pass
+  //     submitted → awaiting_review ([S, K, C]);
+  //   - then awaiting_review → assigned ([C, K]).
+  // A request in `draft`/`queued_offline` is routed as part of sending it.
+  const { status } = careRequest;
+  const REVIEWABLE = ["draft", "queued_offline", "submitted", "awaiting_review"];
+  const arrivalOk =
+    status === "submitted"
+      ? validateAppointmentTransition({
+          from: "submitted",
+          to: "awaiting_review",
+          actorRole: identity.role,
+        }).ok
+      : REVIEWABLE.includes(status);
   const transitionOk =
+    arrivalOk &&
     validateAppointmentTransition({
-      from: currentStatus,
+      from: "awaiting_review",
       to: "assigned",
       actorRole: identity.role,
-    }).ok || transition.ok;
+    }).ok;
   if (!transitionOk) {
     return NextResponse.json({ code: "INVALID_STATE" }, { status: 409 });
   }

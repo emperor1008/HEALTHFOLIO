@@ -187,13 +187,18 @@ describe("A-2/A-4: integration points exist", () => {
     expect(steps.some((s) => s.state === "done")).toBe(true);
   });
 
-  it("proxy protects the Part 1–5 route prefixes", async () => {
+  it("proxy protects every non-public route (session gate)", async () => {
     // Next 16 renamed the middleware convention to proxy (src/proxy.ts).
+    // Firebase session gate: signed-out users are redirected to /sign-in
+    // for ANY route not on the public allowlist — strictly stronger than a
+    // prefix list. Assert the gate logic and the public allowlist exist.
     const src = await import("fs").then((fs) =>
       fs.promises.readFile("src/proxy.ts", "utf8")
     );
-    for (const prefix of ["/care-requests", "/consultations", "/pharmacy", "/staff", "/reliability"]) {
-      expect(src).toContain(`"${prefix}"`);
+    expect(src).toContain("SESSION_COOKIE");
+    expect(src).toContain("/sign-in");
+    for (const pub of ["/", "/sign-in", "/register", "/forgot-password", "/reset-password", "/doctor/apply", "/access-denied"]) {
+      expect(src).toContain(`"${pub}"`);
     }
   });
 });

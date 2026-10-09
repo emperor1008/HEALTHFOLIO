@@ -3,9 +3,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
+import { getUser } from "@/lib/auth-helpers";
 
 const actionSchema = z.object({
   action: z.enum(["taken", "skipped", "snoozed", "not_now"]),
@@ -17,18 +18,15 @@ const actionSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const supabase = createClient();
+  const user = await getUser();
 
-  if (authError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: { code: "AUTH_REQUIRED", message: "Authentication required" } },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -38,26 +36,39 @@ export async function PATCH(
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Invalid action parameters" } },
-      { status: 400 }
+      {
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid action parameters",
+        },
+      },
+      { status: 400 },
     );
   }
 
-  const { action, clientTimezone, clientRequestId, reason, snoozeMinutes } = parsed.data;
+  const { action, clientTimezone, clientRequestId, reason, snoozeMinutes } =
+    parsed.data;
   const admin = await createAdminClient();
 
   // Verify occurrence ownership
   const { data: occurrence } = await admin
     .from("medication_occurrences")
-    .select("id, user_id, medication_plan_id, status, scheduled_for, due_window_end")
+    .select(
+      "id, user_id, medication_plan_id, status, scheduled_for, due_window_end",
+    )
     .eq("id", occurrenceId)
     .eq("user_id", user.id)
     .single();
 
   if (!occurrence) {
     return NextResponse.json(
-      { error: { code: "OCCURRENCE_NOT_FOUND", message: "Occurrence not found" } },
-      { status: 404 }
+      {
+        error: {
+          code: "OCCURRENCE_NOT_FOUND",
+          message: "Occurrence not found",
+        },
+      },
+      { status: 404 },
     );
   }
 

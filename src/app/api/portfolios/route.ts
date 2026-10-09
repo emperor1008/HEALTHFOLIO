@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { getUser } from "@/lib/auth-helpers";
 import { generateRequestId, createError, formatErrorResponse } from "@/lib/errors";
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createClient();
 
     // Check for existing portfolio first
     const { data: existing, error: fetchError } = await supabase

@@ -26,6 +26,30 @@ export const METRIC_EVENTS = [
   "pharmacy_response_recorded",
   "consent_granted",
   "consent_revoked",
+  // Phase 1 consultation telemetry (migration 028) — technical, privacy-safe.
+  "consultation_started",
+  "consultation_connected",
+  "connection_mode",
+  "consultation_degradation",
+  "consultation_audio_fallback",
+  "consultation_reconnection",
+  "consultation_offline_fallback",
+  "consultation_completed",
+  // Voice assistant telemetry (migration 030) — closed,
+  // technical, privacy-safe. NO transcript text, NO symptom
+  // content, NO conversation content — booleans, enums and
+  // counts only.
+  "voice_session_started",
+  "voice_session_completed",
+  "speech_recognition_success",
+  "speech_recognition_failure",
+  "tts_success",
+  "tts_failure",
+  "ai_interpretation_success",
+  "ai_fallback",
+  "intent_clarification",
+  "voice_action_completed",
+  "voice_action_failed",
 ] as const;
 
 export type MetricEvent = (typeof METRIC_EVENTS)[number];
@@ -63,6 +87,62 @@ export const METRIC_METADATA_SCHEMAS: Record<MetricEvent, z.ZodTypeAny> = {
     .strict(),
   consent_granted: z.object({ documentCount: z.number().int().min(1) }).strict(),
   consent_revoked: z.object({}).strict(),
+  consultation_started: z.object({}).strict(),
+  consultation_connected: z.object({ mode: z.enum(["video", "audio"]) }).strict(),
+  connection_mode: z.object({ mode: z.enum(["video", "audio", "text"]) }).strict(),
+  consultation_degradation: z.object({}).strict(),
+  consultation_audio_fallback: z.object({}).strict(),
+  consultation_reconnection: z
+    .object({ outcome: z.enum(["started", "success", "failed"]) })
+    .strict(),
+  consultation_offline_fallback: z.object({}).strict(),
+  consultation_completed: z.object({ role: z.enum(["patient", "clinician"]) }).strict(),
+  // Voice events: language is a BCP-47 family enum, `action`
+  // is the closed plan-kind the adapter observed. Neither can
+  // carry user content.
+  voice_session_started: z.object({}).strict(),
+  voice_session_completed: z.object({}).strict(),
+  speech_recognition_success: z
+    .object({ language: z.enum(["en", "hi", "or"]) })
+    .strict(),
+  speech_recognition_failure: z.object({}).strict(),
+  tts_success: z
+    .object({ language: z.enum(["en", "hi", "or"]) })
+    .strict(),
+  tts_failure: z.object({}).strict(),
+  ai_interpretation_success: z.object({}).strict(),
+  ai_fallback: z.object({}).strict(),
+  intent_clarification: z.object({}).strict(),
+  voice_action_completed: z
+    .object({
+      action: z.enum([
+        "navigate",
+        "readHealthCard",
+        "medicineLookup",
+        "doctorAvailability",
+        "requestDoctor",
+        "shareWithDoctor",
+        "startConsultation",
+        "switchAudio",
+        "endConsultation",
+      ]),
+    })
+    .strict(),
+  voice_action_failed: z
+    .object({
+      action: z.enum([
+        "navigate",
+        "readHealthCard",
+        "medicineLookup",
+        "doctorAvailability",
+        "requestDoctor",
+        "shareWithDoctor",
+        "startConsultation",
+        "switchAudio",
+        "endConsultation",
+      ]),
+    })
+    .strict(),
 };
 
 export interface MetricRecord {
@@ -97,4 +177,6 @@ export const METRIC_DEFINITIONS: Record<string, string> = {
     "Submitted request → first authorized clinician/coordinator action",
   consultationFallbackRate:
     "Completed fallback selections / attempted consultation starts",
+  consultationReliability:
+    "Consultations that reached a connected state, and reconnection outcomes",
 };

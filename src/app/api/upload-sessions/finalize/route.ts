@@ -6,9 +6,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getServerSupabase as createClient } from "@/lib/supabase/user-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
+import { getUser } from "@/lib/auth-helpers";
 
 const finalizeSchema = z.object({
   sessionId: z.string().min(1),
@@ -17,16 +18,13 @@ const finalizeSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const supabase = createClient();
+  const user = await getUser();
 
-  if (authError || !user) {
+  if (!user) {
     return NextResponse.json(
       { error: { code: "AUTH_REQUIRED", message: "Authentication required" } },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -35,8 +33,13 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: { code: "INVALID_REQUEST", message: "Invalid finalize parameters" } },
-      { status: 400 }
+      {
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid finalize parameters",
+        },
+      },
+      { status: 400 },
     );
   }
 
@@ -46,7 +49,9 @@ export async function POST(request: NextRequest) {
   // Verify session ownership
   const { data: session } = await admin
     .from("upload_sessions")
-    .select("id, user_id, portfolio_id, status, expected_page_count, document_id")
+    .select(
+      "id, user_id, portfolio_id, status, expected_page_count, document_id",
+    )
     .eq("id", sessionId)
     .eq("user_id", user.id)
     .single();
@@ -54,7 +59,7 @@ export async function POST(request: NextRequest) {
   if (!session) {
     return NextResponse.json(
       { error: { code: "UPLOAD_SESSION_FAILED", message: "Invalid session" } },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -70,29 +75,45 @@ export async function POST(request: NextRequest) {
 
   if (session.status === "cancelled" || session.status === "failed") {
     return NextResponse.json(
-      { error: { code: "UPLOAD_SESSION_FAILED", message: "Session is no longer active" } },
-      { status: 400 }
+      {
+        error: {
+          code: "UPLOAD_SESSION_FAILED",
+          message: "Session is no longer active",
+        },
+      },
+      { status: 400 },
     );
   }
 
   // Verify all pages are uploaded
   const { data: pages } = await admin
     .from("document_pages")
-    .select("id, upload_status, file_hash, page_number, storage_path, mime_type, file_size_bytes, original_filename, document_id")
+    .select(
+      "id, upload_status, file_hash, page_number, storage_path, mime_type, file_size_bytes, original_filename, document_id",
+    )
     .eq("upload_session_id", sessionId)
     .eq("user_id", user.id)
     .order("page_number", { ascending: true });
 
   if (!pages || pages.length === 0) {
     return NextResponse.json(
-      { error: { code: "DOCUMENT_FINALIZATION_FAILED", message: "No pages found in session" } },
-      { status: 400 }
+      {
+        error: {
+          code: "DOCUMENT_FINALIZATION_FAILED",
+          message: "No pages found in session",
+        },
+      },
+      { status: 400 },
     );
   }
 
-  const allVerified = pages.every((p) => p.upload_status === "verified" || p.upload_status === "uploaded");
+  const allVerified = pages.every(
+    (p) => p.upload_status === "verified" || p.upload_status === "uploaded",
+  );
   if (!allVerified) {
-    const unverified = pages.filter((p) => p.upload_status === "pending" || p.upload_status === "uploading");
+    const unverified = pages.filter(
+      (p) => p.upload_status === "pending" || p.upload_status === "uploading",
+    );
     return NextResponse.json(
       {
         error: {
@@ -100,13 +121,16 @@ export async function POST(request: NextRequest) {
           message: `${unverified.length} page(s) have not been uploaded yet`,
         },
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   // Create document record using the first page's info
   const firstPage = pages[0];
-  const documentId = session.document_id || firstPage.document_id || firstPage.storage_path.split("/")[3];
+  const documentId =
+    session.document_id ||
+    firstPage.document_id ||
+    firstPage.storage_path.split("/")[3];
 
   // Check for duplicate by file hash
   const combinedHash = pageOrder

@@ -7,9 +7,20 @@
  */
 
 import type { NetworkMonitor } from "./network";
-import type { OfflineStore, QueueItem, QueueActionPayload, SyncAttemptResult } from "./types";
-import { applyAttemptResult, beginSync, selectDueItems, userRetry } from "./state-machine";
+import type {
+  OfflineStore,
+  QueueItem,
+  QueueActionPayload,
+  SyncAttemptResult,
+} from "./types";
+import {
+  applyAttemptResult,
+  beginSync,
+  selectDueItems,
+  userRetry,
+} from "./state-machine";
 import { isTransportFailure } from "./network";
+import { recordQueueMetric } from "./queue-metrics";
 
 /** Display-safe failure reasons. Never contain raw network/DB error text. */
 export const FAILURE_REASONS = {
@@ -26,7 +37,7 @@ export interface SyncHandlers {
   /** Execute one queued action against the real backend. Must be idempotent. */
   execute(
     item: QueueItem,
-    ctx: { getBlob: (key: string) => Promise<Blob | undefined> }
+    ctx: { getBlob: (key: string) => Promise<Blob | undefined> },
   ): Promise<SyncAttemptResult>;
 }
 
@@ -36,7 +47,11 @@ export interface SyncEngineEvents {
   /** Fired when a full sync pass begins. */
   onSyncStart?: () => void;
   /** Fired when a full sync pass finishes. */
-  onSyncEnd?: (summary: { attempted: number; synced: number; failed: number }) => void;
+  onSyncEnd?: (summary: {
+    attempted: number;
+    synced: number;
+    failed: number;
+  }) => void;
 }
 
 export interface SyncEngine {
@@ -44,7 +59,7 @@ export interface SyncEngine {
   enqueue(
     actionType: QueueActionPayload["kind"] & string,
     payload: QueueActionPayload,
-    options?: { blob?: Blob }
+    options?: { blob?: Blob },
   ): Promise<QueueItem>;
   /** Run one sync pass over due items. Safe to call concurrently (coalesced). */
   syncNow(reason: "auto" | "manual" | "foreground"): Promise<void>;
@@ -66,6 +81,15 @@ interface EngineDeps {
   network: NetworkMonitor;
   handlers: SyncHandlers;
   events?: SyncEngineEvents;
+  /**
+   * Resolves the current session's user id (Better Auth). Items are stamped
+   * with this on enqueue; only items matching the CURRENT owner sync.
+   * Returns null when no session exists — items then carry a safe pre-auth
+   * marker and stay strictly local until claimed by the same user.
+   */
+  getOwnerId?: () => string | null;
+  /** Whether an item may sync under the current session owner. */
+  canSyncItem?: (item: QueueItem, ownerId: string | null) => boolean;
 }
 
 /** Generate UUIDs with a fallback for older browsers. */
@@ -83,6 +107,8 @@ export function generateUuid(): string {
 
 export function createSyncEngine(deps: EngineDeps): SyncEngine {
   const { store, network, handlers, events } = deps;
+  const getOwnerId = deps.getOwnerId ?? (() => null);
+  const maySync = deps.canSyncItem ?? (() => true);
   const listeners = new Set<(items: QueueItem[]) => void>();
 
   let syncing = false;
@@ -101,7 +127,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     await emitChange();
   }
 
-  async function runItem(item: QueueItem): Promise<{ outcome: "synced" | "failed" }> {
+  async function runItem(
+    item: QueueItem,
+  ): Promise<{ outcome: "synced" | "failed" }> {
     const started = beginSync(item, new Date());
     await persist(started);
 
@@ -130,21 +158,25 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
 
     // Privacy-safe metrics: action type + outcome only, never payload data.
     try {
-      const modName = "@/lib/metrics/service";
-      const mod = (await import(modName)) as {
-        recordMetric: (input: unknown) => void;
-      };
       const startedMs = new Date(started.updatedAt).getTime();
       if (next.state === "synced") {
-        mod.recordMetric({
+        const durationMs = Number.isFinite(startedMs)
+          ? Math.max(0, Date.now() - startedMs)
+          : 0;
+        recordQueueMetric({
           event: "queue_item_synced",
-          durationMs: Number.isFinite(startedMs) ? Math.max(0, Date.now() - startedMs) : null,
-          metadata: { actionType: item.actionType },
+          durationMs,
+          // `durationMs` is part of this event's strict metadata schema —
+          // without it the server rejects the record as INVALID_METADATA.
+          metadata: { actionType: item.actionType, durationMs },
         });
       } else if (next.state === "requires_attention") {
-        mod.recordMetric({
+        recordQueueMetric({
           event: "queue_item_failed",
-          metadata: { actionType: item.actionType, retryCount: next.retryCount },
+          metadata: {
+            actionType: item.actionType,
+            retryCount: next.retryCount,
+          },
         });
       }
     } catch {
@@ -154,7 +186,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
     return { outcome: next.state === "synced" ? "synced" : "failed" };
   }
 
-  async function runPass(reason: "auto" | "manual" | "foreground"): Promise<void> {
+  async function runPass(
+    reason: "auto" | "manual" | "foreground",
+  ): Promise<void> {
     if (disposed) return;
     if (syncing) {
       syncRequested = true;
@@ -169,10 +203,14 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
       // A manual pass overrides backoff windows: the user explicitly asked to
       // sync now, so waiting out an exponential backoff would feel broken.
       const ignoreBackoff = reason === "manual";
+      const ownerId = getOwnerId();
       for (;;) {
         if (!network.getState().online && reason !== "manual") break;
         const all = await store.getAll();
-        const due = selectDueItems(all, new Date(), { ignoreBackoff });
+        // Ownership gate: items bound to another user (or an unclaimed
+        // pre-auth marker) are never synced by this session.
+        const syncable = all.filter((item) => maySync(item, ownerId));
+        const due = selectDueItems(syncable, new Date(), { ignoreBackoff });
         if (due.length === 0) break;
         await runItem(due[0]);
       }
@@ -180,9 +218,11 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
       syncing = false;
       const all = await store.getAll();
       const failed = all.filter(
-        (i) => i.state === "failed" || i.state === "requires_attention"
+        (i) => i.state === "failed" || i.state === "requires_attention",
       ).length;
-      const syncedThisPass = all.filter((i) => i.state === "synced" && i.syncedAt).length;
+      const syncedThisPass = all.filter(
+        (i) => i.state === "synced" && i.syncedAt,
+      ).length;
       events?.onSyncEnd?.({
         attempted: syncedThisPass + failed,
         synced: syncedThisPass,
@@ -199,6 +239,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
   const engine: SyncEngine = {
     async enqueue(actionType, payload, options) {
       const now = new Date();
+      // Ownership stamping: prefer the live session user; otherwise a safe
+      // pre-auth marker so nothing can attach to a future account.
+      const ownerId = getOwnerId() ?? `pre-auth:${generateUuid()}`;
       const item: QueueItem = {
         id: generateUuid(),
         idempotencyKey: generateUuid(),
@@ -209,6 +252,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
         state: "pending",
         updatedAt: now.toISOString(),
         blobKey: options?.blob ? `blob-${generateUuid()}` : undefined,
+        ownerId,
       };
       if (options?.blob && item.blobKey) {
         await store.put(item);
@@ -219,14 +263,14 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
       await emitChange();
 
       // Metrics: queue_item_created (action type only — no payload data).
-      // Uses a runtime indirection so the server-only metrics module is never
-      // statically traced into the client bundle.
+      // Posted to the server endpoint: the metrics service itself is
+      // server-only, and importing it here dragged the whole server data
+      // layer into the client bundle.
       try {
-        const modName = "@/lib/metrics/service";
-        const mod = (await import(/* webpackIgnore: false */ modName)) as {
-          recordMetric: (input: unknown) => void;
-        };
-        mod.recordMetric({ event: "queue_item_created", metadata: { actionType } });
+        recordQueueMetric({
+          event: "queue_item_created",
+          metadata: { actionType },
+        });
       } catch {
         /* best-effort; metrics must never break queue flow */
       }
@@ -247,7 +291,11 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
           if (item.state === "failed" || item.state === "requires_attention") {
             await store.update(requeueUserRetry(item));
           } else if (item.state === "pending" && item.nextAttemptAt) {
-            await store.update({ ...item, nextAttemptAt: undefined, updatedAt: new Date().toISOString() });
+            await store.update({
+              ...item,
+              nextAttemptAt: undefined,
+              updatedAt: new Date().toISOString(),
+            });
           }
         }
         await emitChange();
@@ -299,7 +347,7 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
   unsubscribers.push(
     network.subscribe((state) => {
       if (state.online && !disposed) void engine.syncNow("auto");
-    })
+    }),
   );
 
   const onVisible = () => {
@@ -314,7 +362,9 @@ export function createSyncEngine(deps: EngineDeps): SyncEngine {
   if (typeof document !== "undefined") {
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onFocus);
-    unsubscribers.push(() => document.removeEventListener("visibilitychange", onVisible));
+    unsubscribers.push(() =>
+      document.removeEventListener("visibilitychange", onVisible),
+    );
     unsubscribers.push(() => window.removeEventListener("focus", onFocus));
   }
 

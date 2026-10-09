@@ -21,7 +21,8 @@ CREATE OR REPLACE FUNCTION review_measurement(
   p_corrected_reference_high numeric DEFAULT NULL,
   p_corrected_reference_text text DEFAULT NULL,
   p_corrected_report_flag text DEFAULT NULL,
-  p_request_id text DEFAULT NULL
+  p_request_id text DEFAULT NULL,
+  p_base_updated_at timestamptz DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -44,14 +45,28 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'errorCode', 'SESSION_REQUIRED');
   END IF;
 
-  -- Fetch and verify ownership
-  SELECT id, user_id, verification_status, value_numeric, value_text
+  -- Fetch and verify ownership + concurrency lock
+  SELECT id, user_id, verification_status, value_numeric, value_text,
+         updated_at
   INTO v_measurement
   FROM medical_measurements
-  WHERE id = p_measurement_id AND user_id = v_user_id;
+  WHERE id = p_measurement_id AND user_id = v_user_id
+  FOR UPDATE;
 
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'errorCode', 'NOT_FOUND');
+  END IF;
+
+  -- Optimistic concurrency control: reject writes that would overwrite a more
+  -- recent change from another session (device or clinician).
+  IF p_base_updated_at IS NOT NULL
+     AND v_measurement.updated_at IS DISTINCT FROM p_base_updated_at THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'errorCode', 'VERSION_CONFLICT',
+      'serverUpdatedAt', v_measurement.updated_at,
+      'clientBaseUpdatedAt', p_base_updated_at
+    );
   END IF;
 
   -- Build update data
@@ -158,7 +173,8 @@ BEGIN
                          ELSE report_flag END
   WHERE id = p_measurement_id AND user_id = v_user_id;
 
-  -- Build audit metadata (safe — no medical values)
+  -- Audit metadata intentionally excludes medical values.
+  -- safe [authorizedRoles: authenticated;B1-L141]
   v_metadata := jsonb_build_object(
     'measurement_id', p_measurement_id,
     'previous_status', v_measurement.verification_status,
