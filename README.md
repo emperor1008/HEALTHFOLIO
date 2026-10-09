@@ -1,159 +1,75 @@
 # Healthfolio
 
-**Your health history, clearly organized.**
+> **Offline-first health records and care coordination for communities where connectivity cannot be assumed.**
 
-An intelligent personal health-record platform that securely organizes medical documents, extracts verifiable information, tracks health trends, and helps users prepare for informed healthcare conversations.
+Healthfolio helps people securely capture medical records, understand verified information, request appropriate care, and stay connected with clinicians and pharmaciesâ€”even when the network is slow or temporarily unavailable.
 
-**Live showcase:** https://emperor1008.github.io/HEALTHFOLIO/ (static public site — see [Public Showcase](#public-showcase))
-
----
-
-## What is Healthfolio?
-
-Healthfolio is a responsive web application that helps patients organize scattered medical records — prescriptions, lab reports, discharge summaries, and scan images — into a verified chronological timeline. It extracts structured information using local AI, tracks health trends over time, manages medication routines, and prepares users for upcoming appointments with evidence-backed consultation briefs.
-
-### Core Features
-
-- **Secure Document Upload** — PDF, PNG, JPEG, WEBP with validation, private storage, and duplicate detection
-- **Real OCR** — Tesseract.js for images, pdf-parse for text PDFs, scanned-PDF image fallback
-- **Local AI Processing** — Ollama-powered document classification and structured extraction
-- **Confidence Review** — Every extracted fact shows confidence level; uncertain items require user confirmation
-- **Verified Health Timeline** — Chronological events with source citations and verification status
-- **Health Tracking** — Track verified measurements over time with graphs, trends, and time-range filtering
-- **Test Report Intelligence** — Understand lab results with reference ranges, abnormal flags, and verification status
-- **Medicine Intelligence** — Look up authoritative medicine information from RxNorm, DailyMed, and openFDA
-- **Medication Routine** — Convert verified prescriptions into user-confirmed reminder schedules
-- **Agentic Processing** — Observable agent loop with explicit states, tool allowlist, and failure recovery
-- **Ask Healthfolio** — Conversational assistant with typo correction, medicine/test name matching, and record citations
-- **Consultation Brief** — Appointment-focused summary with verified events, questions, and checklist
-- **PDF Export** — Download a professional consultation brief as PDF
-- **Calendar Export** — Download a standards-compliant `.ics` calendar event
-- **Privacy First** — Private storage, row-level security, signed URLs, anonymous sessions, local AI
-
-### Medical Safety Boundary
-
-Healthfolio organizes medical information and helps you prepare for consultations. **It does not diagnose conditions, recommend treatment, prescribe medicine, calculate doses, or replace a healthcare professional.**
+It is designed around one principle: **a weak connection must never mean lost health information.**
 
 ---
 
-## Public Showcase
+## The Problem
 
-A polished, static product website is published to GitHub Pages:
+For many patients, especially in rural and semi-urban communities, healthcare access is fragmented:
 
-> **https://emperor1008.github.io/HEALTHFOLIO/**
+* Medical reports, prescriptions, and scan images are scattered across paper files and phones.
+* Travel to a hospital may end in a missed consultation, unavailable specialist, or unavailable medicine.
+* Internet connectivity is unreliable, making conventional cloud-first healthcare apps impractical.
+* Patients with low digital literacy need simple, multilingual flows instead of complicated forms.
+* Clinicians and pharmacies need reliable, privacy-safe informationâ€”not incomplete or fabricated data.
 
-### What GitHub Pages hosts — and what it does not
-
-- Pages serves **only** the static files in `showcase/` (plain HTML/CSS/SVG, no application code, no backend).
-- It **never** serves the Next.js application, `.next` output, API routes, database migrations, environment files, or test code.
-- No Supabase credentials, service-role keys, tokens, or environment values are referenced by the showcase or embedded in its assets.
-- The secure, server-backed application (records, offline queue, triage, care coordination, pharmacy console) requires a real application deployment with a configured Supabase project; it is intentionally not exposed from GitHub Pages. The showcase shows a truthful "Secure application deployment is being prepared" label instead of a fake app link.
-
-### How deployment works
-
-- Workflow: `.github/workflows/deploy-pages.yml`
-- Trigger: every push to `main` (and manual `workflow_dispatch`).
-- On each run the workflow verifies the whole repository first — secrets scan (`npm run secrets:scan`), lint (`npm run lint`), typecheck (`npm run typecheck`), unit tests (`npm test`), and the production build (`npm run build`) — and publishes `showcase/` to Pages **only if every step passes**.
-- Deploys use the official actions (`actions/checkout`, `actions/setup-node`, `actions/configure-pages`, `actions/upload-pages-artifact`, `actions/deploy-pages`) with least-privilege permissions (`contents: read`, `pages: write`, `id-token: write`), Node.js 20 with npm caching, and a `pages` concurrency group so an older deployment can never overwrite a newer one.
-
-### One-time repository setting
-
-GitHub Pages must be pointed at the workflow once:
-
-1. Open the repository on GitHub → **Settings** → **Pages**.
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-3. Done. Every subsequent push to `main` verifies and redeploys automatically; CI status for each run is visible under the repository's **Actions** tab.
-
-If the site 404s after the first successful run, confirm this setting was applied and the workflow completed under **Actions**.
+Healthfolio brings these experiences into one secure, offline-capable care journey.
 
 ---
 
-## Local Setup
+## What Healthfolio Does
 
-### Prerequisites
+### For patients
 
-- Node.js 18+
-- A Supabase project (free tier works) with Anonymous Sign-In enabled
-- [Ollama](https://ollama.com) installed locally
+* Capture prescriptions, lab reports, discharge summaries, and scan images.
+* Upload files or use camera-based document capture.
+* Keep health records organized in a private, chronological health space.
+* Review extracted measurements, reports, medicines, and health trends.
+* Create structured care requests that remain safely queued during a network interruption.
+* View the true status of a care request, appointment, document review, and medicine-availability response.
+* Use English, Hindi, or Odia interfaces designed for clear, low-literacy-friendly interaction.
 
-### 1. Clone and install
+### For clinicians and care teams
 
-```bash
-git clone https://github.com/emperor1008/HEALTHFOLIO.git
-cd healthfolio
-npm install
-```
+* View authorized patient care requests.
+* Manage availability and consultation workflow.
+* Review safety-routed requests without relying on unreliable live connectivity.
+* Coordinate appointments, text-first consultations, and consent-based record sharing.
+* Access an operational reliability view based only on real system events.
 
-### 2. Set up environment
+### For pharmacy operators
 
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` with your own values (see `.env.example` for all available variables):
-
-```dotenv
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-
-AI_PROVIDER=ollama
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_TEXT_MODEL=qwen2.5:3b
-OLLAMA_CHAT_MODEL=qwen3:8b
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
-AI_REQUEST_TIMEOUT_MS=120000
-```
-
-**Never commit `.env.local`.** It is already in `.gitignore`.
-
-### 3. Install Ollama models
-
-```bash
-ollama pull qwen2.5:3b
-ollama pull qwen3:8b
-ollama pull nomic-embed-text
-```
-
-Start the Ollama service if it isn't running:
-
-```bash
-ollama serve
-```
-
-### 4. Set up Supabase
-
-1. Create a project at [supabase.com](https://supabase.com)
-2. Open the SQL Editor and run each migration in order:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_storage_bucket.sql`
-   - `supabase/migrations/003_add_audit_policy_and_constraints.sql`
-   - `supabase/migrations/004_performance_indexes.sql`
-   - `supabase/migrations/005_portfolio_unique_constraint.sql`
-   - `supabase/migrations/006_medical_measurements.sql`
-   - `supabase/migrations/007_measurement_review_rpc.sql`
-   - `supabase/migrations/008_document_organization.sql`
-   - `supabase/migrations/009_medicine_intelligence.sql`
-   - `supabase/migrations/010_test_report_intelligence.sql`
-   - `supabase/migrations/011_smart_document_capture.sql`
-   - `supabase/migrations/012_storage_webp_support.sql`
-   - `supabase/migrations/013_medication_routine_agent.sql`
-   - …continue through `supabase/migrations/027_better_auth_identity.sql` (Better Auth tables, role registry, doctor applications, audit events)
-
-> **Note:** Migration 002 creates the private `documents` storage bucket. If it requires elevated permissions, create the bucket manually in the Supabase Dashboard under **Storage** with the name `documents`, set it to private, and add the policies from the migration file.
-
-### 5. Start the development server
-
-```bash
-npm run dev
-```
-
-Visit [http://localhost:3000](http://localhost:3000). First-time visitors **register** at `/register` (Better Auth email + password, creates a `patient` account); returning users sign in at `/sign-in`. There is no anonymous bootstrap — identity always comes from a real Better Auth session.
+* Update medicine availability from participating pharmacies.
+* Show freshness timestamps so patients are never shown stale availability as current information.
+* Help reduce unnecessary travel for unavailable medicines.
 
 ---
 
-## Scripts
+## Core Capabilities
+
+| Capability                        | How it works                                                                                                                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Offline-first care requests**   | Actions are stored locally in an encrypted queue, survive refreshes and network drops, and synchronize automatically once connectivity returns.                                     |
+| **No silent data loss**           | Every queued action has an idempotency key, bounded retry strategy, recovery state, and visible status. The interface never claims a request was sent until the server confirms it. |
+| **Medical record capture**        | Supports PDF, PNG, JPEG, and WebP uploads with file-size, MIME-type, extension, and signature validation.                                                                           |
+| **OCR and structured extraction** | Extracts useful text and structured information from supported medical records, with confidence-aware review for uncertain results.                                                 |
+| **Verified health timeline**      | Builds an evidence-linked chronological record of health events, reports, medicines, and measurements.                                                                              |
+| **Health tracking**               | Shows verified health measurements over time with trend views, report ranges, and source evidence.                                                                                  |
+| **Safe care triage**              | Uses deterministic, non-diagnostic urgency routing to identify when immediate professional help may be needed. It never diagnoses, prescribes, or provides false reassurance.       |
+| **Care coordination**             | Supports care requests, clinician availability, appointments, consent-based record sharing, and text-first consultation fallback.                                                   |
+| **Pharmacy availability**         | Participating pharmacy operators can provide medicine availability updates with timestamp and freshness indicators.                                                                 |
+| **Multilingual experience**       | User-facing care flows support English, à¤¹à¤¿à¤¨à¥à¤¦à¥€, and à¬“à¬¡à¬¼à¬¿à¬†. Medical source content remains unchanged to preserve accuracy.                                                           |
+| **Role-based access**             | Patient, clinician, coordinator, pharmacy, and platform-administrator capabilities are enforced server-side. Clients cannot assign themselves elevated roles.                       |
+| **Privacy by design**             | Private storage, row-level database policies, signed document access, audited actions, and server-side authorization boundaries.                                                    |
+
+---
+
+## Safety Commitment
 
 | Command | Description |
 |---|---|
@@ -162,158 +78,104 @@ Visit [http://localhost:3000](http://localhost:3000). First-time visitors **regi
 | `npm start` | Start production server |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | TypeScript type checking |
-| `npm test` | Run Vitest unit tests (922 tests) |
-| `npm run test:e2e` | Run Playwright E2E tests (app-shell suite on port 3100) |
+| `npm test` | Run Vitest unit tests; verify the current test count |
+| `npm run test:e2e` | Run Playwright end-to-end tests |
 | `npm run format` | Format with Prettier |
 | `npm run secrets:scan` | Scan tracked files for committed secrets |
-| `npm run ai:check` | Verify Ollama connectivity and model availability |
-| `npm run verify:all` | Run full verification suite |
+| `npm run ai:check` | Check Ollama connectivity and model availability |
+| `npm run verify:all` | Run the full verification suite |
+
+Healthfolio is a health-information and care-coordination platform.
+
+It **does not**:
+
+* diagnose medical conditions
+* prescribe medicine
+* calculate or change doses
+* replace a doctor, pharmacist, emergency service, or hospital
+* guarantee medicine availability
+* claim that a care request was delivered before acknowledgement
+
+When urgent symptoms are identified, Healthfolio provides escalation guidance and encourages immediate contact with local emergency services or a qualified healthcare professional.
 
 ---
 
-## Architecture
+## Offline-First Architecture
 
-### Tech Stack
+Healthfolio is built for patchy and low-bandwidth conditions.
 
-- **Framework:** Next.js 14 App Router
-- **Language:** TypeScript (strict mode)
-- **Styling:** Tailwind CSS
-- **Animation:** Framer Motion
-- **Validation:** Zod
-- **Auth:** Supabase Auth (anonymous sign-in, with email/password available)
-- **Database:** Supabase PostgreSQL with Row-Level Security
-- **Storage:** Supabase private bucket with signed URLs
-- **AI:** Ollama (local, zero-cost) through provider adapter
-  - `qwen2.5:3b` — Document classification and structured extraction
-  - `qwen3:8b` — Ask Healthfolio conversational chat
-  - `nomic-embed-text` — Text embeddings for similarity search
-- **OCR:** Tesseract.js for images, pdf-parse for text PDFs
-- **PDF Export:** jsPDF with jspdf-autotable
-- **Calendar:** ics library
-- **Testing:** Vitest + React Testing Library + Playwright
-
-### Project Structure
-
-```
-healthfolio/
-├── src/
-│   ├── app/                # Next.js App Router pages and API routes
-│   │   ├── (marketing)/    # Public landing page
-│   │   ├── (auth)/         # Sign-up, sign-in, password reset
-│   │   ├── (app)/          # Authenticated app pages
-│   │   │   ├── dashboard/  # Home dashboard
-│   │   │   ├── records/    # Medical records and reports
-│   │   │   ├── timeline/   # Verified health timeline
-│   │   │   ├── health-tracking/  # Measurement tracking and graphs
-│   │   │   ├── medicines/  # Medicine intelligence
-│   │   │   ├── routine/    # Medication routine plans
-│   │   │   ├── ask/        # Ask Healthfolio chat
-│   │   │   ├── review/     # Extraction review queue
-│   │   │   ├── preparation/ # Consultation preparation
-│   │   │   ├── runs/       # Agent run detail
-│   │   │   └── settings/   # Account and settings
-│   │   ├── auth/           # Session bootstrap, callback
-│   │   └── api/            # Server API routes
-│   ├── components/         # React components
-│   ├── lib/                # Core business logic
-│   │   ├── agent/          # Agent controller and state machine
-│   │   ├── ai/             # AI provider adapter (Ollama), schemas, safety
-│   │   ├── assistant/      # Ask Healthfolio: intent router, normalizer, matchers
-│   │   ├── documents/      # Document ingestion and OCR pipeline
-│   │   ├── measurements/   # Health measurement extraction and tracking
-│   │   ├── medicines/      # Medicine intelligence (RxNorm, DailyMed, openFDA)
-│   │   ├── reports/        # Test report intelligence
-│   │   ├── routines/       # Medication routine agent
-│   │   ├── tools/          # Tool registry and allowlist
-│   │   └── supabase/       # Supabase client configuration
-│   └── types/              # TypeScript type declarations
-├── supabase/
-│   └── migrations/         # SQL database migrations (001–013)
-├── scripts/                # Build and verification scripts
-├── tests/                  # Unit and integration tests (491 tests)
-├── docs/                   # Technical documentation
-└── public/                 # Static assets
+```text
+Patient action
+     â†“
+Local encrypted queue
+     â†“
+Network unavailable? â”€â”€ Yes â†’ Persist safely and retry later
+     â†“ No
+Secure API acknowledgement
+     â†“
+Server record created exactly once
+     â†“
+Visible patient journey status
 ```
 
-### Agent Loop
+### Reliability principles
 
-Healthfolio uses a controlled agent loop:
-
-```
-INTAKE → INGEST → EXTRACT → REVIEW_REQUIRED → PLAN
-       → EXECUTE → VERIFY → ADAPT → COMPLETE | BLOCKED
-```
-
-The agent maintains user goal and explicit state, selects actions from a server-controlled tool allowlist, validates all inputs and outputs, detects failures and uncertainty, resumes after user resolves blocked steps, and stops after configurable maximum steps.
-
-### Allowed Tools
-
-All tool names are defined in a single authoritative source (`src/lib/tools/tool-names.ts`):
-
-| Tool | Purpose |
-|---|---|
-| `document.ingest` | Process newly uploaded documents |
-| `document.extract` | Extract structured data from documents |
-| `document.replace` | Replace a document with clearer copy |
-| `timeline.build` | Build verified health timeline |
-| `clarification.request` | Request user review or correction |
-| `brief.generate` | Generate consultation preparation brief |
-| `checklist.generate` | Generate preparation checklist |
-| `reminder.create` | Create appointment reminder |
-| `calendar.export_ics` | Export calendar event |
-| `pdf.export` | Export brief as PDF |
+* Offline actions remain available after page refresh.
+* Synchronization retries use bounded backoff.
+* Duplicate taps and repeated retries do not create duplicate care requests.
+* Failed actions remain visible and can be retried or removed by the user.
+* The application displays honest states such as **Saved on this device**, **Waiting to sync**, **Needs attention**, and **Sent**.
+* No development overlay, artificial success state, or simulated production record is shown to end users.
 
 ---
 
-## Security
+## Security and Privacy
 
-- **Row-Level Security** enabled on every user-data table
-- **Private storage** with user-scoped access policies
-- **Signed URLs** for document access (no permanent public URLs)
-- **Server-side AI** — API keys never exposed to browser
-- **Input validation** — Zod schemas for all API inputs
-- **File validation** — Extension, MIME type, size, and magic-byte signature verification
-- **Account deletion** — Full data removal with typed confirmation
-- **Password recovery** — Complete reset flow with resend cooldown
-- **Consent enforcement** — Middleware-level consent check before app access
-- **Agent allowlist** — Only registered tools can be invoked
-- **Safety policy** — Blocks diagnosis, treatment, and medication changes
-- **Redacted audit events** — No raw medical data in logs
-- **No dummy data** — Empty states for new accounts
-- **Secret scanning** — Run `npm run secrets:scan` before committing
-- **Never commit credentials** — `.env.local` is gitignored and must never be pushed
-- **Local AI** — Medical data stays on your machine; Ollama processes locally
-- **Prompt injection protection** — User messages treated as untrusted data
+Healthfolio is designed to minimize exposure of sensitive health information.
 
----
+* Row-Level Security policies protect user-owned database records.
+* Documents are stored privately and accessed through short-lived signed URLs.
+* Uploads are validated before processing.
+* Server routes verify identity and authorization independently of the client UI.
+* Role assignments are resolved server-side.
+* Sensitive health content is excluded from aggregate reliability metrics.
+* Redirects and external input are validated.
+* Audit events are redacted to avoid storing raw health content in logs.
+* Secrets are never committed to the repository.
+* `.env.local` is ignored by Git and must remain private.
 
 ## Environment Variables
 
-| Variable | Description | Scope | Required |
-|---|---|---|---|
-| `NEXT_PUBLIC_APP_URL` | Application URL | Public | Yes |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Public | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Public | Legacy-compatible |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | **Server-only** | Yes |
-| `DATABASE_URL` | PostgreSQL connection string for Better Auth tables | **Server-only** | Yes |
-| `BETTER_AUTH_SECRET` | Session signing secret (generate: `openssl rand -base64 32`) | **Server-only** | Yes |
-| `BETTER_AUTH_URL` | Canonical auth origin (e.g. `http://localhost:3000`) | Server-only | Yes in production |
+Configure `.env.local` using `.env.example`. Healthfolio uses Firebase Authentication alongside existing PostgreSQL and Supabase services that have not yet migrated.
 
-\* `SUPABASE_SERVICE_ROLE_KEY` is required by the server-side data layer (all medical-table access is server-scoped); it must never appear in client code. `NEXT_PUBLIC_SUPABASE_ANON_KEY` remains accepted for legacy compatibility but the browser no longer talks to Supabase directly.
+| Variable | Description | Scope |
+|---|---|---|
+| `NEXT_PUBLIC_APP_URL` | Application URL | Public |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase client API key | Public |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase authentication domain | Public |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase project ID | Public |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase Storage bucket configuration | Public; optional where supported |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID | Public; optional where supported |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase application ID | Public |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Firebase Admin service-account JSON supplied as one environment string | **Server-only** |
+| `DATABASE_URL` | PostgreSQL connection string for remaining database services | **Server-only** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Existing Supabase project URL | Public |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public/anonymous key for remaining integrations | Public |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase server-side service-role key | **Server-only** |
 
-### Authentication (Better Auth)
+Only configure variables required by the feature and deployment environment. Never expose service-account credentials, database credentials, or the Supabase service-role key in client code or commit them to Git.
 
-Authentication is owned by [Better Auth](https://better-auth.com): users, sessions, credential accounts, and verification tokens live in Better Auth's canonical tables (migration 027) in the same PostgreSQL database referenced by `DATABASE_URL`. Supabase remains the database and private document storage; the browser never authenticates to Supabase and never queries medical tables directly.
+### Authentication (Firebase)
 
-- **Roles are server-enforced** (`app_roles` registry, migration 027): `patient`, `doctor_pending`, `doctor`, `facility_admin`, `platform_admin`. Public registration creates only `patient`; doctor applicants become `doctor_pending` until an authorized admin approves them; `platform_admin` can never be created through any public surface.
-- **Initial platform admin** (local, server-only, requires the service key from `.env.local`):
+Firebase Authentication is the application's authentication foundation. The Firebase client configuration is initialized in `src/lib/firebase/config.ts`; server-side Firebase Admin initialization is handled in `src/lib/firebase/admin.ts`.
 
-  ```bash
-  node scripts/admin-bootstrap.mjs --email <existing-user-email> --confirm
-  ```
+- The server-side registration endpoint creates Firebase users and provisions the associated identity.
+- The session endpoint exchanges a verified Firebase ID token for an HTTP-only session cookie.
+- Server endpoints must validate identity and authorization independently of client-side UI.
+- Elevated roles must be assigned and checked through trusted server-side logic, never accepted solely from client input.
+- Firebase Authentication migration does not, by itself, migrate the existing PostgreSQL data layer, private Supabase document storage, or consultation signalling.
 
-  The script refuses to run without the required environment variables or without `--confirm`, prints only truncated IDs, and is idempotent. See the script header for the full contract.
-- **Post-login routing by role:** `patient` → `/dashboard`, `doctor_pending` → `/doctor/application-status`, `doctor` → `/doctor`, `facility_admin` → `/admin/facility`, `platform_admin` → `/admin/platform`. Role-specific areas show an accessible "You do not have access to this area" screen to everyone else — never a raw error.
+For the current implementation, follow the application's Firebase registration and sign-in flows.
 
 ---
 
@@ -321,17 +183,16 @@ Authentication is owned by [Better Auth](https://better-auth.com): users, sessio
 
 | Problem | Solution |
 |---|---|
-| Ollama not responding | Run `ollama serve` and verify at http://127.0.0.1:11434 |
-| Model not found | Run `ollama pull qwen2.5:3b` (or the configured model) |
-| AI timeout | Increase `AI_REQUEST_TIMEOUT_MS` or ensure Ollama has sufficient memory |
-| Session not persisting | Check Supabase redirect URLs include `http://localhost:3000/**` |
-| Upload fails | Verify the `documents` storage bucket exists and is private |
-| Database errors | Ensure all migrations (001–013) are applied in the Supabase SQL Editor |
-| OCR returns empty text | Ensure image resolution is sufficient (at least 300 DPI recommended) |
-| 406 errors on dashboard | Non-critical; caused by empty result on `.single()` queries |
+| Ollama not responding | Run `ollama serve` and verify the configured local endpoint. |
+| Model not found | Pull the configured model with `ollama pull <model-name>`. |
+| AI timeout | Check `AI_REQUEST_TIMEOUT_MS` and available system memory. |
+| Authentication or session failure | Verify Firebase public configuration, server-only Admin credentials, token exchange responses, and the configured application URL. Never paste credentials into logs or issue reports. |
+| Upload fails | Check the storage service currently used by that feature and its access policies. |
+| Database errors | Verify `DATABASE_URL`, Supabase configuration where required, and the migrations needed by the existing database layer. |
+| OCR returns empty text | Check file quality, supported formats, OCR language configuration, and image resolution. |
+| Authorization failure | Verify the authenticated user's identity, server-side role assignment, and resource ownership checks. |
 
 ---
-
 ## Testing
 
 ### Unit Tests
@@ -340,17 +201,7 @@ Authentication is owned by [Better Auth](https://better-auth.com): users, sessio
 npm test
 ```
 
-Tests cover:
-- Medical safety boundaries
-- Tool registry allowlist and state permissions
-- AI output schema validation
-- Ask Healthfolio intent classification, normalization, and matching
-- ICS calendar generation
-- Input validation
-- OCR file signature validation
-- Medicine intelligence lookups
-- Measurement trend calculations
-- Safe error mapping
+Tests cover areas such as medical safety boundaries, input validation, AI output validation, document processing, medicine intelligence, and measurement calculations. Use the actual test-runner output for the current test count.
 
 ### AI Live Check
 
@@ -358,85 +209,219 @@ Tests cover:
 npm run ai:check
 ```
 
-Verifies:
-- Ollama service is reachable
-- Configured text model exists
-- Configured chat model exists
-- Configured embedding model exists
-- Structured chat works
-- Embedding generation works
+This checks the configured local AI service and model availability. It requires the relevant Ollama service and models to be available.
 
 ### Secret Scanner
+
+Before every push, run:
 
 ```bash
 npm run secrets:scan
 ```
 
-Scans all tracked files for likely API keys, connection strings, private keys, and hardcoded credentials. Run before every commit.
+Review the result before pushing. Do not commit `.env.local`, service-account JSON, or other credentials.
 
-### Full Verification
+```bash
+npm run secrets:scan
+```
+
+---
+
+## Technology Stack
+
+| Layer           | Technology                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| Application     | Next.js App Router                                                                              |
+| Language        | TypeScript with strict type checking                                                            |
+| UI              | Tailwind CSS, Framer Motion                                                                     |
+| Validation      | Zod                                                                                             |
+| Database        | Supabase PostgreSQL                                                                             |
+| Storage         | Supabase private storage with signed URLs                                                       |
+| Authentication  | Role-aware authentication and server-side authorization boundaries                              |
+| Offline storage | IndexedDB-based action queue                                                                    |
+| OCR             | Tesseract.js and PDF text extraction                                                            |
+| AI integration  | Provider-adapter architecture for structured document intelligence and health-record assistance |
+| Testing         | Vitest, React Testing Library, Playwright                                                       |
+| Exports         | jsPDF and ICS calendar generation                                                               |
+
+---
+
+## Roles and Access Model
+
+| Role                       | Primary responsibilities                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| **Patient**                | Capture records, submit care requests, review personal health information, manage consent. |
+| **Clinician**              | Review authorized requests, manage availability, coordinate care and consultations.        |
+| **Coordinator**            | Support facility workflow, region configuration, and operational oversight.                |
+| **Pharmacy operator**      | Maintain pharmacy availability updates for participating pharmacies.                       |
+| **Platform administrator** | Provision trusted staff roles and manage platform-level controls.                          |
+
+Role checks are performed on the server. A browser client cannot promote itself to clinician, coordinator, or administrator.
+
+---
+
+## Project Structure
+
+```text
+healthfolio/
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ app/                  # Pages, layouts, API routes
+â”‚   â”œâ”€â”€ components/           # Reusable interface components
+â”‚   â”œâ”€â”€ lib/
+â”‚   â”‚   â”œâ”€â”€ agent/            # Controlled workflow and tool execution
+â”‚   â”‚   â”œâ”€â”€ ai/               # AI provider adapters, schemas, safety
+â”‚   â”‚   â”œâ”€â”€ documents/        # Upload, OCR, extraction pipeline
+â”‚   â”‚   â”œâ”€â”€ health/           # Measurements, reports, trends
+â”‚   â”‚   â”œâ”€â”€ care/             # Care requests and coordination
+â”‚   â”‚   â”œâ”€â”€ pharmacy/         # Medicine-availability workflow
+â”‚   â”‚   â”œâ”€â”€ offline/          # Queue, sync, retry, idempotency
+â”‚   â”‚   â”œâ”€â”€ auth/             # Authentication and authorization
+â”‚   â”‚   â””â”€â”€ supabase/         # Database and storage clients
+â”‚   â””â”€â”€ types/                # Shared TypeScript types
+â”œâ”€â”€ supabase/
+â”‚   â””â”€â”€ migrations/           # Versioned database migrations
+â”œâ”€â”€ docs/                     # Architecture, security, operations, demo guides
+â”œâ”€â”€ scripts/                  # Verification and maintenance scripts
+â”œâ”€â”€ tests/                    # Unit, integration, and E2E tests
+â””â”€â”€ public/                   # Static assets
+```
+
+---
+
+## Local Development
+
+### Prerequisites
+
+* Node.js 20 or later
+* npm
+* A Supabase project
+* Supabase CLI
+* Environment values stored only in `.env.local`
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/emperor1008/HEALTHFOLIO.git
+cd HEALTHFOLIO
+npm install
+```
+
+### 2. Create your local environment file
+
+```bash
+Copy-Item .env.example .env.local
+```
+
+Fill in your own environment values in `.env.local`.
+
+Never commit this file.
+
+### 3. Connect Supabase and apply migrations
+
+```bash
+npx supabase link --project-ref YOUR_PROJECT_REFERENCE
+npx supabase db push
+```
+
+Verify the database setup:
+
+```bash
+npm run db:verify
+```
+
+### 4. Start the application
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+---
+
+## Quality Checks
+
+| Command                | Purpose                                                 |
+| ---------------------- | ------------------------------------------------------- |
+| `npm run dev`          | Start local development                                 |
+| `npm run build`        | Create a production build                               |
+| `npm run lint`         | Run lint checks                                         |
+| `npm run typecheck`    | Run strict TypeScript validation                        |
+| `npm test`             | Run unit and integration tests                          |
+| `npm run test:e2e`     | Run browser-based end-to-end tests                      |
+| `npm run secrets:scan` | Scan tracked files for accidental credentials           |
+| `npm run db:verify`    | Verify required tables, storage, and database functions |
+| `npm run verify:all`   | Run the full local verification suite                   |
+
+Recommended pre-push check:
 
 ```bash
 npm run verify:all
 ```
 
-Runs: secrets scan, lint, typecheck, unit tests, build, and AI check.
+---
+
+## Documentation
+
+| Document                         | Description                                                 |
+| -------------------------------- | ----------------------------------------------------------- |
+| `docs/problem-solution-brief.md` | Problem, users, value proposition, and safety boundaries    |
+| `docs/system-architecture.md`    | Architecture, data flow, and security design                |
+| `docs/agent-workflow.md`         | Controlled workflow states, tools, evidence, and recovery   |
+| `docs/security-privacy.md`       | Privacy model, access control, and sensitive-data handling  |
+| `docs/operations-runbook.md`     | Operational setup, regions, staff provisioning, and support |
+| `docs/demo-script.md`            | Demonstration flow based on real functionality              |
+| `docs/deployment-checklist.md`   | Deployment and production-readiness checklist               |
 
 ---
 
-## Limitations
+## Current Scope and Honest Limitations
 
-- AI features require Ollama running locally; **the core rural-care workflow (records, offline queue, triage, appointments, pharmacy availability) does NOT depend on AI availability**
-- OCR quality depends on document image resolution and scan quality
-- Interface languages: English, हिन्दी (Hindi), ଓଡ଼ିଆ (Odia); medical record content is never translated
-- Background push notifications require Web Push configuration
-- Storage bucket creation may require manual setup via Supabase Dashboard
-- AI is not a medical professional
+Healthfolio is designed to support real care workflows, but its usefulness depends on real participating patients, clinicians, coordinators, and pharmacy operators.
 
-### Rural-care platform limitations (Parts 1–5)
-
-- **Real participation required for live data.** Clinician queues, appointments, and pharmacy availability show honest empty states until genuine clinicians/pharmacy operators register and act. Nothing is simulated.
-- **WebRTC video needs real infrastructure.** No TURN/STUN relay is configured by default, so peer-to-peer media cannot be guaranteed — especially on 2G/3G. Secure text and store-and-forward messaging are the dependable fallback paths, fully functional offline. Video/audio only via authorized, confirmed appointments.
-- **Not a diagnostic or emergency-response system.** The deterministic triage engine sorts requests by broad urgency signals; it never diagnoses, prescribes, or contacts emergency services. Region emergency guidance is configured by administrators and is informational only.
-- **Pharmacy availability is only as current as the pharmacy's last confirmation** — stale statuses are shown as "Not recently confirmed," never as current availability.
-- **Staff roles are server-assigned** via the platform-admin console or the local provisioning scripts (`npm run admin:bootstrap` for the first platform admin — Better Auth identity, migration 027; see `docs/operations-runbook.md`). There is no self-service clinician signup.
-- **Metrics are aggregate-only.** No symptom text, document contents, or identifiers ever enter the metrics layer.
+- Clinician queues and care coordination require authorized staff accounts and functioning server-side authorization.
+- Pharmacy availability is only as current as the latest genuine update from a participating pharmacy. It is not a guarantee of stock.
+- Video consultation quality depends on device capabilities, network conditions, and the deployed WebRTC infrastructure. Text-first communication should remain available when video cannot connect.
+- OCR results depend on document quality, legibility, and resolution. Extracted medical information must be checked against the source document.
+- Triage and AI-generated explanations are informational support, not diagnoses or prescriptions. They must not replace a qualified professional or emergency care.
+- Offline queues can preserve supported actions locally, but synchronization and delivery require connectivity. The interface must not claim server receipt before acknowledgement.
+- The application does not replace a hospital information system or guarantee that a clinician, medicine, appointment, or emergency service will be available.
+- Demonstrations and tests must not be represented as proof of live hospital integration. Do not fabricate clinicians, pharmacies, patient records, or medicine stock.
 
 ---
-
-## Rural-Care Platform (Parts 1–5)
-
-The repository now includes a complete offline-first rural-care workflow on top of the original record-organization features:
+## Implementation Roadmap
 
 | Part | Capability | Key docs |
 |---|---|---|
-| 1 | Offline-first PWA, IndexedDB queue, en/hi/or i18n, secure capture | `docs/offline-first-part1.md` |
-| 2 | Deterministic triage, care-request packets | `docs/safe-triage-part2.md` |
+| 1 | Offline-first PWA, IndexedDB queue, English/Hindi/Odia support, secure capture | `docs/offline-first-part1.md` |
+| 2 | Deterministic triage and care-request packets | `docs/safe-triage-part2.md` |
 | 3 | Clinician availability, appointments, consent-based sharing, text-first consultation | `docs/care-coordination-part3.md` |
 | 4 | Pharmacist-confirmed medicine availability | `docs/pharmacy-stock-part4.md` |
-| 5 | Journey view, metrics, resilience testing, region config, release readiness | `docs/release-readiness-part5.md`, `docs/architecture.md`, `docs/security-privacy.md`, `docs/operations-runbook.md`, `docs/demo-script.md`, `docs/deployment-checklist.md` |
+| 5 | Patient journey, reliability metrics, resilience testing, regional configuration, release readiness | `docs/release-readiness-part5.md`, `docs/architecture.md`, `docs/security-privacy.md`, `docs/operations-runbook.md`, `docs/demo-script.md`, `docs/deployment-checklist.md` |
 
 ### Patient journey view
 
-The care-requests screen renders a unified journey built ONLY from real queue and server state (see `src/lib/journey/status.ts`). Steps: captured → saved on device → synchronized → submitted → safety routing → review → care-team action → appointment/message → record sharing → medicine availability → completed/needs attention. Each step shows a timestamp when one genuinely exists and a plain-language explanation, in English, Hindi, and Odia.
+The care-requests screen presents a journey based on actual queue and server state. Timestamps appear only when recorded. The interface supports English, Hindi, and Odia.
 
 ### Reliability dashboard
 
-`/reliability` (staff-only) shows real recorded operational events with transparent definitions (sync reliability, availability freshness, time-to-clinician-action, consultation-fallback rate). It truthfully shows "No data yet" when nothing has been recorded. Data comes from the privacy-safe `reliability_metrics` table (migration 021) — aggregate counts and durations only, no identifiers.
+The staff-only `/reliability` view reports recorded operational events. It must show "No data yet" when there are no recorded events. Metrics should remain aggregate-only and must not expose patient identifiers.
 
-### Network resilience test mode (development tooling)
+### Network resilience testing
 
-Automated tests simulate offline / slow-2G / slow-3G / timeout / mid-sync-drop conditions through the resilience harness in `tests/support/`. The harness is not mounted in the running application and cannot be reached by normal users; production builds contain no test panel, network-profile selector, or debug overlay. Queued actions always follow their real retry path and never fake success.
+Automated tests exercise offline, slow-network, timeout, and interrupted-sync conditions through `tests/support/`. This development test harness is not a production user interface. Queued actions must follow real retry paths and must not report success before server acknowledgement.
 
-### Region configuration
+### Regional configuration
 
-Region-specific behavior (languages, emergency guidance text/number, appointment hours, freshness thresholds, consultation modes, feature flags) lives in the `region_config` table (migration 022), managed by coordinators via `src/lib/region/`. No town, hospital, phone number, or language is hard-coded; unconfigured regions show generic safe defaults. See `docs/operations-runbook.md` for adding a region without code changes.
+Regional settings include languages, emergency guidance, appointment hours, freshness thresholds, consultation modes, and feature flags. Check the deployed schema and `docs/operations-runbook.md` before changing regional settings.
 
-### Staff roles
+### Staff roles and authorization
 
-Clinician/coordinator roles are assigned server-side through the platform-admin console (`/staff/admin`) or the local `npm run admin:bootstrap` provisioning script. Role capability requires an active row in the `app_roles` registry (migration 027, Better Auth identity). Pharmacy operator/manager roles live in `pharmacy_memberships` (migration 020). Clients can never assert a role.
-
----
+Staff permissions must be enforced by trusted server-side authorization checks. Never trust a role supplied by the client. Verify the deployed role-assignment mechanism and resource-ownership checks before granting access to clinician, coordinator, or pharmacy workflows. Firebase Authentication alone does not migrate the existing database or automatically authorize access to its records. Follow `docs/security-privacy.md` and `docs/operations-runbook.md`.
 
 ## License
 
@@ -447,8 +432,8 @@ MIT
 ## Third-Party Acknowledgements
 
 - [Next.js](https://nextjs.org/) — React framework
-- [Supabase](https://supabase.com/) — Database and private storage
-- [Better Auth](https://better-auth.com/) — Authentication, sessions, and identity
+- [Firebase](https://firebase.google.com/) — Authentication and configured Firebase services
+- [Supabase](https://supabase.com/) — Existing database, private storage, and integrations not yet migrated
 - [Ollama](https://ollama.com/) — Local AI inference
 - [Tesseract.js](https://tesseract.projectnaptha.com/) — Optical character recognition
 - [pdf-parse](https://www.npmjs.com/package/pdf-parse) — PDF text extraction
@@ -462,4 +447,4 @@ MIT
 
 ---
 
-*Healthfolio organizes medical information and helps you prepare for consultations. It does not diagnose conditions, recommend treatment, prescribe medicine, calculate doses, or replace a healthcare professional.*
+> **Healthfolio makes health information easier to organize, safer to carry, and more practical to use—without pretending to replace professional care.**
